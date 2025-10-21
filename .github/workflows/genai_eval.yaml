@@ -40,9 +40,10 @@ jobs:
               "api_version": "2024-12-01-preview" 
             } 
           }' > ${{ env.GENAI_EVALS_CONFIG_PATH }}
-      - name: Debug evaluate config
+      - name: Debug evaluate config and data files
         run: |
             cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
+            cat ${{ env.GENAI_EVALS_DATA_PATH }}
       - name: Run AI Evaluation 
         id: run-ai-evaluation 
         uses: microsoft/genai-evals@main 

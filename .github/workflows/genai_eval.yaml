@@ -14,7 +14,7 @@ jobs:
       name: dev
     env: 
       GENAI_EVALS_CONFIG_PATH:  ${{ github.workspace }}/evaluate-config.json  
-      GENAI_EVALS_DATA_PATH: ${{ github.workspace }}/.github/.test_files/eval-input.jsonl 
+      GENAI_EVALS_DATA_PATH: ${{ github.workspace }}/.github/.test_files/eval_input.jsonl 
       AZURE_CLIENT_SECRET:   ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
       AZURE_TENANT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
       AZURE_CLIENT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
@@ -40,35 +40,31 @@ jobs:
               "api_version": "2024-12-01-preview" 
             } 
           }' > ${{ env.GENAI_EVALS_CONFIG_PATH }}      
-      - name: Debug - Check repository structure
-        run: |
-          echo "Current directory:"
-          pwd
-          echo ""
-          echo "Repository root contents:"
-          ls -la
-          echo ""
-          echo "Check if .github exists:"
-          ls -la .github/ || echo ".github directory not found"
-          echo ""
-          echo "Check if .github/.test_files exists:"
-          ls -la .github/.test_files/ || echo ".github/.test_files directory not found"
-          echo ""
-          echo "Find all .jsonl files:"
-          find . -name "*.jsonl" -type f
-          echo ""
-          echo "Find eval-input.jsonl specifically:"
-          find . -name "eval-input.jsonl" -type f || echo "eval-input.jsonl not found"
-      
-      - uses: azure/login@v2 
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+    #   - name: Debug - Check repository structure
+    #     run: |
+    #       echo "Current directory:"
+    #       pwd
+    #       echo ""
+    #       echo "Repository root contents:"
+    #       ls -la
+    #       echo ""
+    #       echo "Check if .github exists:"
+    #       ls -la .github/ || echo ".github directory not found"
+    #       echo ""
+    #       echo "Check if .github/.test_files exists:"
+    #       ls -la .github/.test_files/ || echo ".github/.test_files directory not found"
+    #       echo ""
+    #       echo "Find all .jsonl files:"
+    #       find . -name "*.jsonl" -type f
+    #       echo ""
+    #       echo "Find eval-input.jsonl specifically:"
+    #       find . -name "eval-input.jsonl" -type f || echo "eval-input.jsonl not found"
     #   - name: Debug evaluate config and data files
     #     run: |
     #         cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
     #         cat ${{ env.GENAI_EVALS_DATA_PATH }}
-    #   - name: Run AI Evaluation 
-    #     id: run-ai-evaluation 
-    #     uses: microsoft/genai-evals@main 
-    #     with: 
-    #       evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
+      - name: Run AI Evaluation 
+        id: run-ai-evaluation 
+        uses: microsoft/genai-evals@main 
+        with: 
+          evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}

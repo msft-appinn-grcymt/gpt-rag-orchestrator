@@ -1,0 +1,14 @@
+          { 
+            "data": "./dataset/golden-dataset.jsonl", 
+            "evaluators": { 
+              "coherence": "CoherenceEvaluator", 
+              "fluency": "FluencyEvaluator" 
+            }, 
+            "ai_model_configuration": { 
+              "type": "azure_openai", 
+              "azure_endpoint": "https://ca-iyoddfg4lffc4-orchestrator.happywave-ca8f874a.eastus2.azurecontainerapps.io/orchestrator", 
+              "azure_deployment": "gpt-4.1", 
+              "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}", 
+              "api_version": "2024-12-01-preview" 
+            } 
+          } 

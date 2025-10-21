@@ -42,11 +42,11 @@ jobs:
     #         } 
     #       } 
     #       EOF 
-      - name: Debug evaluate config
-        run: |
-            cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
-    #   - name: Run AI Evaluation 
-    #     id: run-ai-evaluation 
-    #     uses: microsoft/genai-evals@main 
-    #     with: 
-    #       evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
+    #   - name: Debug evaluate config
+    #     run: |
+    #         cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
+      - name: Run AI Evaluation 
+        id: run-ai-evaluation 
+        uses: microsoft/genai-evals@main 
+        with: 
+          evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}

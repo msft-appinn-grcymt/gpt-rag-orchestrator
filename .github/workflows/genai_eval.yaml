@@ -13,8 +13,8 @@ jobs:
     environment:
       name: dev
     env: 
-      GENAI_EVALS_CONFIG_PATH: ${{ github.workspace }}/dataset/evaluate-config.json 
-      GENAI_EVALS_DATA_PATH: ${{ github.workspace }}/dataset/golden-dataset.jsonl 
+      GENAI_EVALS_CONFIG_PATH: ./dataset/evaluate-config.json 
+      GENAI_EVALS_DATA_PATH: ./dataset/golden-dataset.jsonl 
       AZURE_CLIENT_SECRET:   ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
       AZURE_TENANT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
       AZURE_CLIENT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
@@ -45,6 +45,10 @@ jobs:
     #   - name: Debug evaluate config
     #     run: |
     #         cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
+      - name: Debug 
+        run: |
+            ls -liat
+            ls -liat ./dataset
       - name: Run AI Evaluation 
         id: run-ai-evaluation 
         uses: microsoft/genai-evals@main 

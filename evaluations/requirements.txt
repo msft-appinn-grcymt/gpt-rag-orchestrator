@@ -28,3 +28,8 @@ fastapi==0.115.12
 uvicorn==0.34.1
 # (Optional) If you ever load from a .env in this venv:
 # python-dotenv
+#opentelemetry
+azure-monitor-opentelemetry
+azure-monitor-opentelemetry-exporter
+opentelemetry-instrumentation-httpx==0.52b1
+opentelemetry-instrumentation-fastapi

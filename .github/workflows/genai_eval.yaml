@@ -25,9 +25,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Write evaluate config 
-        run: | 
-          cat > ${{ env.GENAI_EVALS_CONFIG_PATH }} <<EOF 
-          { 
+        run: |
+          echo '{ 
             "data": "${{ env.GENAI_EVALS_DATA_PATH }}", 
             "evaluators": { 
               "coherence": "CoherenceEvaluator", 
@@ -40,17 +39,12 @@ jobs:
               "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}", 
               "api_version": "2024-12-01-preview" 
             } 
-          } 
-          EOF 
+          }' > ${{ env.GENAI_EVALS_CONFIG_PATH }}
       - name: Debug evaluate config
         run: |
             cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
-    #   - name: Debug 
-    #     run: |
-    #         ls -liat
-    #         ls -liat ./dataset
-    #   - name: Run AI Evaluation 
-    #     id: run-ai-evaluation 
-    #     uses: microsoft/genai-evals@main 
-    #     with: 
-    #       evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
+      - name: Run AI Evaluation 
+        id: run-ai-evaluation 
+        uses: microsoft/genai-evals@main 
+        with: 
+          evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}

@@ -33,3 +33,5 @@ azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter
 opentelemetry-instrumentation-httpx==0.52b1
 opentelemetry-instrumentation-fastapi
+azure-appconfiguration==1.7.1
+azure.appconfiguration.provider

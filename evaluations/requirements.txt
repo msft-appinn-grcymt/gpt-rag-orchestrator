@@ -21,6 +21,10 @@ azure-ai-agents
 # — Azure AI Evaluation SDK
 azure-ai-evaluation
 
+azure-identity==1.21.0
+azure-mgmt-web==8.0.0
+azure-mgmt-storage==22.1.1
+azure-storage-blob==12.25.1
 # - Key Vault (if you use it for secrets)
 azure-keyvault-secrets==4.7.0
 fastapi==0.115.12

@@ -18,7 +18,7 @@ jobs:
       AZURE_CLIENT_SECRET:   ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
       AZURE_TENANT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
       AZURE_CLIENT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
-      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    #   APP_CONFIG_ENDPOINT:   ${{ vars.APP_CONFIG_ENDPOINT }}
     steps: 
       - uses: actions/checkout@v4 
       - uses: azure/login@v2 
@@ -26,9 +26,9 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Write evaluate config 
         run: | 
-          cat > ${{ env.GENAI_EVALS_CONFIG_PATH }} <<'EOF'
+          cat > ${{ env.GENAI_EVALS_CONFIG_PATH }} <<EOF 
           { 
-            "data": "$GENAI_EVALS_DATA_PATH", 
+            "data": "${{ env.GENAI_EVALS_DATA_PATH }}", 
             "evaluators": { 
               "coherence": "CoherenceEvaluator", 
               "fluency": "FluencyEvaluator" 
@@ -37,15 +37,16 @@ jobs:
               "type": "azure_openai", 
               "azure_endpoint": "https://ca-iyoddfg4lffc4-orchestrator.happywave-ca8f874a.eastus2.azurecontainerapps.io/orchestrator", 
               "azure_deployment": "gpt-4.1", 
-              "api_key": "ENV:AZURE_OPENAI_API_KEY", 
+              "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}", 
               "api_version": "2024-12-01-preview" 
             } 
           } 
-          EOF
-          # Substitute environment variables
-          envsubst < ${{ env.GENAI_EVALS_CONFIG_PATH }} > temp.json && mv temp.json ${{ env.GENAI_EVALS_CONFIG_PATH }}
-      - name: Run AI Evaluation 
-        id: run-ai-evaluation 
-        uses: microsoft/genai-evals@main 
-        with: 
-          evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
+          EOF 
+      - name: Debug evaluate config
+        run: |
+            cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
+    #   - name: Run AI Evaluation 
+    #     id: run-ai-evaluation 
+    #     uses: microsoft/genai-evals@main 
+    #     with: 
+    #       evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}

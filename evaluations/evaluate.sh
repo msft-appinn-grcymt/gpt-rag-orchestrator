@@ -37,20 +37,15 @@ pip install -r evaluations/requirements.txt
 export PYTHONPATH="$(pwd):$(pwd)/src"
 
 # 5) Generate eval-input
-if [ "$SKIP_EVAL" = false ]; then
-  echo "▶ Generating eval input…"
-  python evaluations/generate_eval_input.py
-else
-  echo "▶ Skipping generate evaluation as requested (--skip-eval)."
-fi
+python evaluations/generate_eval_input.py
 
-# # 6) Conditionally run evaluation
-# if [ "$SKIP_EVAL" = false ]; then
-#   echo "▶ Running evaluation…"
-#   python evaluations/evaluate.py
-# else
-#   echo "▶ Skipping evaluation as requested (--skip-eval)."
-# fi
+# 6) Conditionally run evaluation
+if [ "$SKIP_EVAL" = false ]; then
+  echo "▶ Running evaluation…"
+  python evaluations/evaluate.py
+else
+  echo "▶ Skipping evaluation as requested (--skip-eval)."
+fi
 python evaluations/evaluate.py
 
 # 7) Teardown

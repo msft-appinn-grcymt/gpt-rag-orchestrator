@@ -39,13 +39,36 @@ jobs:
               "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}", 
               "api_version": "2024-12-01-preview" 
             } 
-          }' > ${{ env.GENAI_EVALS_CONFIG_PATH }}
-      - name: Debug evaluate config and data files
+          }' > ${{ env.GENAI_EVALS_CONFIG_PATH }}      
+      - name: Debug - Check repository structure
         run: |
-            cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
-            cat ${{ env.GENAI_EVALS_DATA_PATH }}
-      - name: Run AI Evaluation 
-        id: run-ai-evaluation 
-        uses: microsoft/genai-evals@main 
-        with: 
-          evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
+          echo "Current directory:"
+          pwd
+          echo ""
+          echo "Repository root contents:"
+          ls -la
+          echo ""
+          echo "Check if .github exists:"
+          ls -la .github/ || echo ".github directory not found"
+          echo ""
+          echo "Check if .github/.test_files exists:"
+          ls -la .github/.test_files/ || echo ".github/.test_files directory not found"
+          echo ""
+          echo "Find all .jsonl files:"
+          find . -name "*.jsonl" -type f
+          echo ""
+          echo "Find eval-input.jsonl specifically:"
+          find . -name "eval-input.jsonl" -type f || echo "eval-input.jsonl not found"
+      
+      - uses: azure/login@v2 
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+    #   - name: Debug evaluate config and data files
+    #     run: |
+    #         cat ${{ env.GENAI_EVALS_CONFIG_PATH }}
+    #         cat ${{ env.GENAI_EVALS_DATA_PATH }}
+    #   - name: Run AI Evaluation 
+    #     id: run-ai-evaluation 
+    #     uses: microsoft/genai-evals@main 
+    #     with: 
+    #       evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}

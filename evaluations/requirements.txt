@@ -37,3 +37,7 @@ azure-appconfiguration==1.7.1
 azure.appconfiguration.provider
 # Utility dependencies
 tenacity
+# AI and NLP dependencies
+tiktoken==0.7.0
+openai==1.76.2
+prompty==0.1.50

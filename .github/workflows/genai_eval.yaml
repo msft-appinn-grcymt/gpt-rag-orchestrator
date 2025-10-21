@@ -28,6 +28,7 @@ jobs:
         run: |
           echo '{ 
             "data": "${{ env.GENAI_EVALS_DATA_PATH }}", 
+            "description": "Evaluation of GPT-RAG-Orchestrator on golden dataset",
             "evaluators": { 
               "coherence": "CoherenceEvaluator", 
               "fluency": "FluencyEvaluator" 

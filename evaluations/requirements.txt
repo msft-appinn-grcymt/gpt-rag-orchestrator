@@ -24,6 +24,7 @@ azure-ai-evaluation
 
 # - Key Vault (if you use it for secrets)
 azure-keyvault-secrets==4.7.0
-
+fastapi==0.115.12
+uvicorn==0.34.1
 # (Optional) If you ever load from a .env in this venv:
 # python-dotenv

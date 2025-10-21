@@ -34,7 +34,7 @@ jobs:
             }, 
             "ai_model_configuration": { 
               "type": "azure_openai", 
-              "azure_endpoint": "https://ca-iyoddfg4lffc4-orchestrator.happywave-ca8f874a.eastus2.azurecontainerapps.io/orchestrator", 
+              "azure_endpoint": "https://aif-iyoddfg4lffc4.cognitiveservices.azure.com/openai/deployments/gpt-4.1/chat/completions?api-version=2025-01-01-preview", 
               "azure_deployment": "gpt-4.1", 
               "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}", 
               "api_version": "2024-12-01-preview" 

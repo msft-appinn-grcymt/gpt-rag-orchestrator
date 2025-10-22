@@ -46,7 +46,6 @@ if [ "$SKIP_EVAL" = false ]; then
 else
   echo "▶ Skipping evaluation as requested (--skip-eval)."
 fi
-python evaluations/evaluate.py
 
 # 7) Teardown
 deactivate

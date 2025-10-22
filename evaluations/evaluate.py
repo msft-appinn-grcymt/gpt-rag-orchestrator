@@ -87,7 +87,21 @@ evaluators = {
         init_params={"deployment_name": MODEL_DEPLOYMENT_NAME},
         data_mapping={"query": "${data.query}", "context": "${data.context}"}
     ),
-
+    "coherence": EvaluatorConfiguration(
+        id=EvaluatorIds.COHERENCE,
+        init_params={"deployment_name": MODEL_DEPLOYMENT_NAME},
+        data_mapping={"query": "${data.query}", "response": "${data.response}"}
+    ),
+    "similarity": EvaluatorConfiguration(
+        id=EvaluatorIds.SIMILARITY,
+        init_params={"deployment_name": MODEL_DEPLOYMENT_NAME},
+        data_mapping={"query": "${data.query}", "context": "${data.context}","ground_truth": "${data.truth}"}
+    ),    
+    "groundedness": EvaluatorConfiguration(
+        id=EvaluatorIds.GROUNDEDNESS,
+        init_params={"deployment_name": MODEL_DEPLOYMENT_NAME},
+        data_mapping={"query": "${data.query}", "context": "${data.context}","response": "${data.response}"}
+    ),    
     "safety": EvaluatorConfiguration(
         id=EvaluatorIds.CONTENT_SAFETY,
         init_params={"deployment_name": MODEL_DEPLOYMENT_NAME},        

@@ -63,7 +63,7 @@ def main():
             truth = data.get("ground-truth") or data.get("truth")  # adapt field name
             logger.info(f"[{idx}/{total}] ▶ Generating response for query: {query!r}")
             # Call the /orchestrator endpoint via TestClient
-            resp = client.post("/orchestrator", json={"ask": query, "conversation_id": None})
+            resp = client.post("/orchestrator", json={"ask": query, "conversation_id": None}, headers={"X-API-KEY": "sample"})
             response_text = resp.text
             logger.debug(f"[{idx}] Response received (first 100 chars): {response_text[:100]!r}")
 

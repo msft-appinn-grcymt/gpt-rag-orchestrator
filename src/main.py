@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Depends, Header
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -14,7 +14,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from orchestration.orchestrator import Orchestrator
 from connectors.appconfig import AppConfigClient
-from dependencies import get_config, validate_auth
+from dependencies import get_config
 from telemetry import Telemetry
 from schemas import OrchestratorRequest, ORCHESTRATOR_RESPONSES
 from constants import APPLICATION_INSIGHTS_CONNECTION_STRING, APP_NAME
@@ -68,15 +68,12 @@ app = FastAPI(
 
 @app.post(
     "/orchestrator",
-    dependencies=[Depends(validate_auth)], 
     summary="Ask orchestrator a question",
     response_description="Returns the orchestrator’s response in real time, streamed via SSE.",
     responses=ORCHESTRATOR_RESPONSES
 )
 async def orchestrator_endpoint(
     body: OrchestratorRequest,
-    x_api_key: Optional[str] = Header(None, alias="X-API-KEY"),
-    dapr_api_token: Optional[str] = Header(None, alias="dapr-api-token"),
 ):
     """
     Accepts JSON payload with ask/question, optional conversation_id and context,

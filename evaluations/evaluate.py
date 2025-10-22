@@ -74,7 +74,7 @@ except HttpResponseError as e:
 evaluators = {
     "completeness": EvaluatorConfiguration(
         id=EvaluatorIds.RESPONSE_COMPLETENESS,
-        init_params={"deployment_name": MODEL_DEPLOYMENT_NAME},
+        init_params={"deployment_name": MODEL_DEPLOYMENT_NAME, "threshold": 4 },
         data_mapping={"response": "${data.response}", "ground_truth": "${data.truth}"}
     ),
     "relevance": EvaluatorConfiguration(

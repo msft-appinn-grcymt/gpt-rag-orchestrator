@@ -159,6 +159,8 @@ except Exception as e:
 async def run_red_team_scan():
     logger.info(f"### Red Teaming Scan Starting ###")
 
+    client = TestClient(app)
+
     def simple_callback(query: str) -> str:
         resp = client.post("/orchestrator", json={"ask": query, "conversation_id": None}, headers={"X-API-KEY": "sample"})
         response_text = resp.text
@@ -185,11 +187,11 @@ async def run_red_team_scan():
         num_objectives=5, # optional, defaults to 10
     )
 
-    # client = TestClient(app)
+
 
     # red_team_result = await red_team_agent.scan(target=simple_callback)
     result = await red_team_agent.scan(
-        target=financial_advisor_callback,
+        target=simple_callback,
         scan_name="Basic-Callback-Scan",
         attack_strategies=[AttackStrategy.Flip],
         output_path="red_team_output.json",

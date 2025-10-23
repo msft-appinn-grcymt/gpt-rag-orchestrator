@@ -20,6 +20,10 @@ from azure.ai.projects.models import (
 )
 from appconfig import AppConfigClient
 from keyvault import KeyVaultClient
+from azure.ai.evaluation.red_team import RedTeam, RiskCategory
+from fastapi.testclient import TestClient
+# Import the FastAPI app; ensure PYTHONPATH includes the 'src' directory
+from src.main import app
 
 # Suppress Azure SDK HTTP logging
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
@@ -44,6 +48,7 @@ INPUT_FILE            = cfg.get(
     "EVAL_INPUT_FILE",
     str(Path(__file__).parent.parent / "dataset" / "eval-input.jsonl")
 )
+AZURE_AI_PROJECT      = cfg.get("AI_FOUNDRY_PROJECT_ENDPOINT")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("cloud_evaluation")
@@ -147,3 +152,32 @@ try:
         logger.warning("Evaluation started, but the evaluation URL could not be retrieved.")
 except Exception as e:
     logger.error(f"An error occurred while processing the evaluation response: {e}")
+
+## Red teaming ##
+
+logger.info(f"### Red Teaming Scan Starting ###")
+
+azure_ai_project = AZURE_AI_PROJECT
+
+red_team_agent = RedTeam(
+    azure_ai_project=azure_ai_project, 
+    credential=credential,
+    risk_categories=[ # optional, defaults to all four risk categories
+    RiskCategory.Violence,
+    RiskCategory.HateUnfairness,
+    RiskCategory.Sexual,
+    RiskCategory.SelfHarm
+    ], 
+    num_objectives=5, # optional, defaults to 10
+)
+
+client = TestClient(app)
+
+def simple_callback(query: str) -> str:
+    resp = client.post("/orchestrator", json={"ask": query, "conversation_id": None}, headers={"X-API-KEY": "sample"})
+    response_text = resp.text
+    return response_text
+
+logger.info(f"Initiating Red Teaming Scan...")
+
+red_team_result = red_team_agent.scan(target=simple_callback)

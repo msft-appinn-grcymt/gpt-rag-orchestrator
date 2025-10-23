@@ -16,12 +16,8 @@ azure-cosmos==4.5.1
 azure-search-documents==11.7.0b1
 
 # — Azure AI Projects & Agents (used by your strategies & evaluate.py)
-# azure-ai-projects==1.0.0b11
-azure-ai-projects
+azure-ai-projects==1.0.0b11
 azure-ai-agents
-
-# - Azure AI Foundry Red Teaming
-azure-ai-evaluation[redteam]
 
 # — Azure AI Evaluation SDK
 azure-ai-evaluation

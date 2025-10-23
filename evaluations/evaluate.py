@@ -1,5 +1,6 @@
 import sys
 import logging
+import os
 from pathlib import Path
 from datetime import datetime, UTC
 
@@ -31,7 +32,7 @@ keyvault_client = KeyVaultClient()
 MODEL_API_KEY = keyvault_client.get_secret(model_api_key_name)
 if not MODEL_API_KEY:
     logger = logging.getLogger("cloud_evaluation")
-    logger.error(f"Model API key secret '{model_api_key_name}' not found in Key Vault.")
+    logger.error(f"Model API key secret '{model_api_key_name}' not found in Key Vault!")
     sys.exit(1)
 
 PROJECT_ENDPOINT      = cfg.get("AI_FOUNDRY_PROJECT_ENDPOINT")
@@ -110,8 +111,13 @@ evaluators = {
 }
 
 # 5) Submit evaluation with both required headers
+# Get commit ID from environment variable or command-line argument
+commit_id = os.getenv("COMMIT_ID") or (sys.argv[1] if len(sys.argv) > 1 else "unknown")
+eval_timestamp = datetime.now(UTC).strftime("%Y%m%d-%H:%M")
+display_name = f"Auto evaluation-{commit_id}-{eval_timestamp}"
+
 evaluation = Evaluation(
-    display_name="Cloud evaluation run",
+    display_name=display_name,
     description="Pre-deployment RAG evaluation",
     data=InputDataset(id=dataset.id),
     evaluators=evaluators

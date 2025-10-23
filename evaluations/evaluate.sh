@@ -42,7 +42,14 @@ python evaluations/generate_eval_input.py
 # 6) Conditionally run evaluation
 if [ "$SKIP_EVAL" = false ]; then
   echo "▶ Running evaluation…"
-  python evaluations/evaluate.py
+  # Pass commit ID from environment or use short form if available
+  if [ -n "${COMMIT_ID:-}" ]; then
+    # Use first 7 characters of commit hash for short format
+    SHORT_COMMIT_ID="${COMMIT_ID:0:7}"
+    COMMIT_ID="$SHORT_COMMIT_ID" python evaluations/evaluate.py
+  else
+    python evaluations/evaluate.py
+  fi
 else
   echo "▶ Skipping evaluation as requested (--skip-eval)."
 fi

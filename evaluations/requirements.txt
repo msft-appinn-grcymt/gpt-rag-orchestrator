@@ -20,7 +20,7 @@ azure-ai-projects==1.0.0b11
 azure-ai-agents
 
 # — Azure AI Evaluation SDK
-azure-ai-evaluation
+# azure-ai-evaluation
 azure-ai-evaluation[redteam]
 azure-identity==1.21.0
 azure-mgmt-web==8.0.0

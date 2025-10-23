@@ -52,3 +52,5 @@ pydantic==2.11.4
 # NL2SQL dependencies
 sqlparse==0.5.1
 pyodbc==5.1.0
+#PyRIT pinned due to interdependencies with prompty and azure-ai-evaluation
+pyrit>=0.9.0

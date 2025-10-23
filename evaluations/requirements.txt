@@ -43,7 +43,7 @@ azure.appconfiguration.provider
 tenacity
 # AI and NLP dependencies
 tiktoken==0.7.0
-openai==1.76.2
+openai==1.108.0 
 prompty==0.1.50
 # Semantic Kernel dependencies
 semantic-kernel[mcp]==1.34.0

@@ -31,7 +31,7 @@ keyvault_client = KeyVaultClient()
 MODEL_API_KEY = keyvault_client.get_secret(model_api_key_name)
 if not MODEL_API_KEY:
     logger = logging.getLogger("cloud_evaluation")
-    logger.error(f"Model API key secret '{model_api_key_name}' not found in Key Vault.")
+    logger.error(f"Model API key secret '{model_api_key_name}' not found in Key Vault!")
     sys.exit(1)
 
 PROJECT_ENDPOINT      = cfg.get("AI_FOUNDRY_PROJECT_ENDPOINT")

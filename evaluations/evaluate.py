@@ -171,20 +171,19 @@ logger.info(f"Initiating Red Teaming Scan...")
 
 azure_ai_project = AZURE_AI_PROJECT
 
-# red_team_agent = RedTeam(
-#     azure_ai_project=azure_ai_project, 
-#     credential=credential,
-#     risk_categories=[ # optional, defaults to all four risk categories
-#     RiskCategory.Violence,
-#     RiskCategory.HateUnfairness,
-#     RiskCategory.Sexual,
-#     RiskCategory.SelfHarm
-#     ], 
-#     num_objectives=5, # optional, defaults to 10
-# )
+red_team_agent = RedTeam(
+    azure_ai_project=azure_ai_project, 
+    credential=credential,
+    risk_categories=[ # optional, defaults to all four risk categories
+    RiskCategory.Violence,
+    RiskCategory.HateUnfairness,
+    RiskCategory.Sexual,
+    RiskCategory.SelfHarm
+    ], 
+    num_objectives=5, # optional, defaults to 10
+)
 
-
-client = TestClient(app)
+# client = TestClient(app)
 
 # red_team_result = await red_team_agent.scan(target=simple_callback)
 result = red_team_agent.scan(

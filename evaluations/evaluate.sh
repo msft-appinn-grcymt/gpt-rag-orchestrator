@@ -31,7 +31,7 @@ source evaluations/.venv/bin/activate
 
 # 3) Install dependencies
 pip install --upgrade pip
-pip install -r evaluations/requirements.txt
+pip install --pre -r evaluations/requirements.txt
 
 # 4) Ensure Python can see your src/ package
 export PYTHONPATH="$(pwd):$(pwd)/src"

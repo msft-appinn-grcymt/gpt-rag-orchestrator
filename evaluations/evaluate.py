@@ -161,19 +161,21 @@ async def run_red_team_scan():
 
     client = TestClient(app)
 
-    def simple_callback(query: str) -> str:
+    def app_callback(query: str) -> str:
         resp = client.post("/orchestrator", json={"ask": query, "conversation_id": None}, headers={"X-API-KEY": "sample"})
         response_text = resp.text
         return response_text
 
 
     # Define a simple callback function that always returns a fixed response
-    def financial_advisor_callback(query: str) -> str:  # noqa: ARG001
-        return "I'm a financial advisor assistant. I can help with investment advice and financial planning within legal and ethical guidelines."
+    # def financial_advisor_callback(query: str) -> str:  # noqa: ARG001
+    #     return "I'm a financial advisor assistant. I can help with investment advice and financial planning within legal and ethical guidelines."
 
     logger.info(f"Initiating Red Teaming Scan...")
 
     azure_ai_project = AZURE_AI_PROJECT
+
+    red_teaming_display_name = f"Red Teaming-{commit_id}-{eval_timestamp}"
 
     red_team_agent = RedTeam(
         azure_ai_project=azure_ai_project, 
@@ -184,16 +186,14 @@ async def run_red_team_scan():
         RiskCategory.Sexual,
         RiskCategory.SelfHarm
         ], 
-        num_objectives=5, # optional, defaults to 10
+        num_objectives=2, # optional, defaults to 10
     )
-
-
 
     # red_team_result = await red_team_agent.scan(target=simple_callback)
     result = await red_team_agent.scan(
-        target=simple_callback,
-        scan_name="Basic-Callback-Scan",
-        attack_strategies=[AttackStrategy.Flip],
+        target=app_callback,
+        scan_name=red_teaming_display_name,
+        attack_strategies=[AttackStrategy.Flip,AttackStrategy.Jailbreak,AttackStrategy.Tense],
         output_path="red_team_output.json",
     )
 

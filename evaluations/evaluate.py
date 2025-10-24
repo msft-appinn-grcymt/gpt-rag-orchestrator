@@ -169,7 +169,7 @@ async def run_red_team_scan():
 
     # Define a simple callback function that always returns a fixed response
     def financial_advisor_callback(query: str) -> str:  # noqa: ARG001
-        return "I'm a financial advisor assistant. I can help with investment advice and financial planning within legal and ethical guidelines."
+        return "I'm a financial advisor assistant. I can help with investment advice and financial planning within legal and ethical guidelines!!"
 
     logger.info(f"Initiating Red Teaming Scan...")
 

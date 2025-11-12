@@ -192,7 +192,7 @@ def main():
 
     logger.info("🔧 Loading App Configuration settings")
 
-    credential = ChainedTokenCredential(ManagedIdentityCredential(), AzureCliCredential())
+    # credential = ChainedTokenCredential(ManagedIdentityCredential(), AzureCliCredential())
     cfg = AppConfigClient()
     copilot_token_secret = cfg.get("COPILOT_TOKEN_SECRET_NAME")
     copilot_token_url = cfg.get("COPILOT_TOKEN_URL")

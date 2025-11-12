@@ -45,25 +45,23 @@ def copilot_chat(item: Item):
 
     #If watermark was not provided that means that it is a new conversation. We need to perform the calls to get the auth tokens and start a conversation
     
-    # DEBUG: Print the token to verify it's loaded correctly
-    logger.info(f"DEBUG - COPILOT_TOKEN_SECRET (first 175 chars): {copilot_token_secret[:175] if copilot_token_secret else 'None'}...")
-    logger.info(f"DEBUG - COPILOT_TOKEN_SECRET length: {len(copilot_token_secret) if copilot_token_secret else 0}")
-    logger.info(f"DEBUG - COPILOT_TOKEN_URL: {copilot_token_url}")
-    
+    # Get auth token - try without Content-Type header first (like Insomnia might be doing)
     headers = {
-    'Authorization': f"Bearer {copilot_token_secret}",
-    'Content-Type': 'application/json'
+        'Authorization': f"Bearer {copilot_token_secret}"
     }
     
-    logger.info(f"DEBUG - Request headers: {headers}")
+    logger.info(f"DEBUG - Calling: {copilot_token_url}")
+    logger.info(f"DEBUG - Token starts with: {copilot_token_secret[:20]}...")
     
-    # Get auth token
     try:
         logger.info("Getting copilot token")
         r = requests.post(copilot_token_url, headers=headers)
-        logger.info(f"DEBUG - Response status code: {r.status_code}")
-        logger.info(f"DEBUG - Response headers: {dict(r.headers)}")
-        logger.info(f"DEBUG - Response text: {r.text}")
+        
+        # Log response before checking status
+        logger.info(f"DEBUG - Response status: {r.status_code}")
+        if r.status_code != 200:
+            logger.error(f"DEBUG - Error response body: {r.text}")
+        
         r.raise_for_status()
         token_results = r.json()
         logger.info(f"Token response: {token_results}")

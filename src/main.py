@@ -46,7 +46,7 @@ Telemetry.log_log_level_diagnostics(cfg)
 
 # 4) If authentication failed, exit immediately
 if getattr(cfg, "auth_failed", False):
-    logging.warning("The orchestrator is not authenticated (run 'az login' or configure Managed Identity). Exiting...")
+    logging.warning("The orchestrator is not authenticated (run 'az login' or configure Managed Identity). Exiting....")
     logging.shutdown()
     os._exit(1)
 

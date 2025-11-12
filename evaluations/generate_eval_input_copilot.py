@@ -45,6 +45,11 @@ def copilot_chat(item: Item):
 
     #If watermark was not provided that means that it is a new conversation. We need to perform the calls to get the auth tokens and start a conversation
     
+    # DEBUG: Print the token to verify it's loaded correctly
+    logger.info(f"DEBUG - COPILOT_TOKEN_SECRET (first 20 chars): {copilot_token_secret[:20] if copilot_token_secret else 'None'}...")
+    logger.info(f"DEBUG - COPILOT_TOKEN_SECRET length: {len(copilot_token_secret) if copilot_token_secret else 0}")
+    logger.info(f"DEBUG - COPILOT_TOKEN_URL: {copilot_token_url}")
+    
     headers = {
     'Authorization': f"Bearer {copilot_token_secret}"
     }

@@ -1,15 +1,9 @@
-# evaluations/generate_eval_input.py
-
 import json
 import logging
 from pathlib import Path
-import sys
 import time
 
 from pydantic import BaseModel
-from fastapi.testclient import TestClient
-# Import the FastAPI app; ensure PYTHONPATH includes the 'src' directory
-from src.main import app
 
 from azure.search.documents import SearchClient
 from azure.identity import ChainedTokenCredential, ManagedIdentityCredential, AzureCliCredential
@@ -88,7 +82,9 @@ def copilot_chat(item: Item):
         "locale": "en-EN",
         "type": "message",
         "text": f"{item.message}",
-        "textformat": "plain"
+        "from": {
+            "id": "user1"
+            }
     }
 
     data = json.dumps(payload)

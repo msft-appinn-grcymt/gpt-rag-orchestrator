@@ -165,7 +165,7 @@ def main():
 
     # credential = ChainedTokenCredential(ManagedIdentityCredential(), AzureCliCredential())
     cfg = AppConfigClient()
-    copilot_token_secret = cfg.get("COPILOT_TOKEN_SECRET_NAME")
+    copilot_token_secret = cfg.get("COPILOT_TOKEN_SECRET")
     # copilot_token_url no longer needed since we skip token generation
     copilot_conversation_url = cfg.get("COPILOT_CONVERSATION_URL")
 

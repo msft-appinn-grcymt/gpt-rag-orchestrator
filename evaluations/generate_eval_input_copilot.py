@@ -52,13 +52,23 @@ def copilot_chat(item: Item):
     try:
         logger.info("Getting copilot token")
         r = requests.post(copilot_token_url,headers=headers)
-    except:
-        logger.error("Error in get token API call: %s",r.text,stack_info=True,exc_info=True)   
-
-    token_results = r.json()
-    auth_token = token_results['token']
-    token_expires_in = token_results['expires_in']
-    # conversation_id = token_results['conversationId']
+        r.raise_for_status()
+        token_results = r.json()
+        logger.info(f"Token response: {token_results}")
+        
+        if 'token' not in token_results:
+            logger.error(f"Token not found in response. Full response: {token_results}")
+            raise ValueError(f"Token not found in response: {token_results}")
+            
+        auth_token = token_results['token']
+        token_expires_in = token_results['expires_in']
+        # conversation_id = token_results['conversationId']
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error in get token API call: {e}",stack_info=True,exc_info=True)
+        raise
+    except (KeyError, ValueError) as e:
+        logger.error(f"Error parsing token response: {e}",stack_info=True,exc_info=True)
+        raise
 
     # Start conversation
     
@@ -71,13 +81,23 @@ def copilot_chat(item: Item):
     try:
         logger.info("Starting copilot conversation")
         conversation_request = requests.post(copilot_conversation_url,headers=headers)
+        conversation_request.raise_for_status()
         
-    except:
-        logger.error("Error in start conversation API call: %s",conversation_request.text,stack_info=True,exc_info=True)   
-
-    conversation_results = conversation_request.json()
-    conversation_id = conversation_results['conversationId']
-    conversation_token = conversation_results['token']
+        conversation_results = conversation_request.json()
+        logger.info(f"Conversation response: {conversation_results}")
+        
+        if 'conversationId' not in conversation_results:
+            logger.error(f"conversationId not found in response. Full response: {conversation_results}")
+            raise ValueError(f"conversationId not found in response: {conversation_results}")
+            
+        conversation_id = conversation_results['conversationId']
+        conversation_token = conversation_results['token']
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error in start conversation API call: {e}",stack_info=True,exc_info=True)
+        raise
+    except (KeyError, ValueError) as e:
+        logger.error(f"Error parsing conversation response: {e}",stack_info=True,exc_info=True)
+        raise
 
     # Send activity
 
@@ -99,11 +119,15 @@ def copilot_chat(item: Item):
 
     try:
         send_activity_request = requests.post(conversation_url, headers = headers, data = data)
-    except:
-        logger.error("Error in Send Activity API call: %s",send_activity_request.text,stack_info=True,exc_info=True)   
-
-    send_activity_results = send_activity_request.json()
-    activity_id = send_activity_results['id']
+        send_activity_request.raise_for_status()
+        send_activity_results = send_activity_request.json()
+        activity_id = send_activity_results['id']
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error in Send Activity API call: {e}",stack_info=True,exc_info=True)
+        raise
+    except KeyError as e:
+        logger.error(f"Error parsing send activity response: {e}. Response: {send_activity_results}",stack_info=True,exc_info=True)
+        raise
 
     # Receive activity
     # Append ?watermark=<value> if watermark is provided so that response to follow up question is retrieved
@@ -140,8 +164,12 @@ def copilot_chat(item: Item):
             # If a valid response is found, exit the retry loop
             if copilot_response != "No valid response found in activities":
                 break                    
-        except:
-            logger.error("Error in getting messages API: %s",r.text,stack_info=True,exc_info=True)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error in getting messages API: {e}",stack_info=True,exc_info=True)
+            copilot_response = "No response from Copilot within the configured timeout limit"   
+            get_activity_results = None
+        except Exception as e:
+            logger.error(f"Unexpected error in getting messages: {e}",stack_info=True,exc_info=True)
             copilot_response = "No response from Copilot within the configured timeout limit"   
             get_activity_results = None
         time.sleep(RETRY_INTERVAL_MS / 1000.0)  # Convert milliseconds to seconds
@@ -191,7 +219,7 @@ def main():
 
             copilot_item = Item(**copilot_json)
             resp = copilot_chat(copilot_item)
-            response_text = resp.text
+            response_text = resp["response"]
             logger.debug(f"[{idx}] Response received (first 100 chars): {response_text[:100]!r}")
 
             # Build record without 'item' field

@@ -51,12 +51,19 @@ def copilot_chat(item: Item):
     logger.info(f"DEBUG - COPILOT_TOKEN_URL: {copilot_token_url}")
     
     headers = {
-    'Authorization': f"Bearer {copilot_token_secret}"
+    'Authorization': f"Bearer {copilot_token_secret}",
+    'Content-Type': 'application/json'
     }
+    
+    logger.info(f"DEBUG - Request headers: {headers}")
+    
     # Get auth token
     try:
         logger.info("Getting copilot token")
-        r = requests.post(copilot_token_url,headers=headers)
+        r = requests.post(copilot_token_url, headers=headers)
+        logger.info(f"DEBUG - Response status code: {r.status_code}")
+        logger.info(f"DEBUG - Response headers: {dict(r.headers)}")
+        logger.info(f"DEBUG - Response text: {r.text}")
         r.raise_for_status()
         token_results = r.json()
         logger.info(f"Token response: {token_results}")

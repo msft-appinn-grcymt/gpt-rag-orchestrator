@@ -120,7 +120,7 @@ evaluators = {
 # Get commit ID from environment variable or command-line argument
 commit_id = os.getenv("COMMIT_ID") or (sys.argv[1] if len(sys.argv) > 1 else "unknown")
 eval_timestamp = datetime.now(UTC).strftime("%Y%m%d-%H:%M")
-display_name = f"Auto evaluation-{commit_id}-{eval_timestamp}"
+display_name = f"Auto evaluation-CopilotStudio-{eval_timestamp}"
 
 evaluation = Evaluation(
     display_name=display_name,

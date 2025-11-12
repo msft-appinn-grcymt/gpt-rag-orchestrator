@@ -43,58 +43,24 @@ def setup_logging():
 
 def copilot_chat(item: Item):
 
-    #If watermark was not provided that means that it is a new conversation. We need to perform the calls to get the auth tokens and start a conversation
+    # Use the secret directly to start conversation (skip token generation step)
+    # The Direct Line secret from App Config can be used directly
+    logger.info("Using Direct Line secret directly to start conversation")
     
-    # Get auth token - try without Content-Type header first (like Insomnia might be doing)
+    # Start conversation
+    # POST https://directline.botframework.com/v3/directline/conversations
+    
     headers = {
         'Authorization': f"Bearer {copilot_token_secret}"
     }
     
-    logger.info(f"DEBUG - Calling: {copilot_token_url}")
-    logger.info(f"DEBUG - Token starts with: {copilot_token_secret[:20]}...")
-    
-    try:
-        logger.info("Getting copilot token")
-        r = requests.post(copilot_token_url, headers=headers)
-        
-        # Log response before checking status
-        logger.info(f"DEBUG - Response status: {r.status_code}")
-        if r.status_code != 200:
-            logger.error(f"DEBUG - Error response body: {r.text}")
-        
-        r.raise_for_status()
-        token_results = r.json()
-        logger.info(f"Token response: {token_results}")
-        
-        if 'token' not in token_results:
-            logger.error(f"Token not found in response. Full response: {token_results}")
-            raise ValueError(f"Token not found in response: {token_results}")
-            
-        auth_token = token_results['token']
-        token_expires_in = token_results['expires_in']
-        # conversation_id = token_results['conversationId']
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error in get token API call: {e}",stack_info=True,exc_info=True)
-        raise
-    except (KeyError, ValueError) as e:
-        logger.error(f"Error parsing token response: {e}",stack_info=True,exc_info=True)
-        raise
-
-    # Start conversation
-    
-    # POST https://directline.botframework.com/v3/directline/conversations
-    
-    headers = {
-    'Authorization': f"Bearer {auth_token}"
-    }
-    
     try:
         logger.info("Starting copilot conversation")
-        conversation_request = requests.post(copilot_conversation_url,headers=headers)
+        conversation_request = requests.post(copilot_conversation_url, headers=headers)
         conversation_request.raise_for_status()
         
         conversation_results = conversation_request.json()
-        logger.info(f"Conversation response: {conversation_results}")
+        logger.info(f"Conversation started successfully")
         
         if 'conversationId' not in conversation_results:
             logger.error(f"conversationId not found in response. Full response: {conversation_results}")
@@ -190,7 +156,7 @@ def copilot_chat(item: Item):
     return {"response": copilot_response, "last_watermark": watermark}
 
 def main():
-    global logger, copilot_token_secret, copilot_token_url
+    global logger, copilot_token_secret, copilot_token_url, copilot_conversation_url
     
     setup_logging()
     logger = logging.getLogger("generate_eval_input")
@@ -200,7 +166,7 @@ def main():
     # credential = ChainedTokenCredential(ManagedIdentityCredential(), AzureCliCredential())
     cfg = AppConfigClient()
     copilot_token_secret = cfg.get("COPILOT_TOKEN_SECRET_NAME")
-    copilot_token_url = cfg.get("COPILOT_TOKEN_URL")
+    # copilot_token_url no longer needed since we skip token generation
     copilot_conversation_url = cfg.get("COPILOT_CONVERSATION_URL")
 
     in_path = Path(__file__).parent.parent / "dataset" / "golden-dataset-copilot.jsonl"

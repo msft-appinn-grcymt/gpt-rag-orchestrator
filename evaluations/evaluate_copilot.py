@@ -206,4 +206,4 @@ async def run_red_team_scan():
         output_path="red_team_output.json",
     )
 
-# asyncio.run(run_red_team_scan())
+asyncio.run(run_red_team_scan())

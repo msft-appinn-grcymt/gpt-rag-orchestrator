@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime, UTC
 import asyncio
 
-from azure.identity import ChainedTokenCredential, ManagedIdentityCredential, AzureCliCredential
+from azure.identity import ChainedTokenCredential, EnvironmentCredential, ManagedIdentityCredential, AzureCliCredential
 
 import azure.ai.projects
 print(azure.ai.projects.__version__)
@@ -60,7 +60,7 @@ if not (PROJECT_ENDPOINT and MODEL_ENDPOINT and MODEL_DEPLOYMENT_NAME and MODEL_
     sys.exit(1)
 
 # 2) Initialize AIProjectClient
-credential = ChainedTokenCredential(ManagedIdentityCredential(), AzureCliCredential())
+credential = ChainedTokenCredential(EnvironmentCredential(), ManagedIdentityCredential(), AzureCliCredential())
 project_client = AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=credential)
 logger.info(f"Connected to AI Foundry: {PROJECT_ENDPOINT}")
 

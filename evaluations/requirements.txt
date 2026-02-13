@@ -1,53 +1,52 @@
-# — FastAPI & TestClient (for calling your app in-memory)
-requests==2.32.4
+# =============================================================================
+# EVALUATION VENV REQUIREMENTS (azure-ai-projects SDK 2.0.0b1+)
+# =============================================================================
+# This requirements file is for the EVALUATION virtual environment ONLY.
+# It uses azure-ai-projects>=2.0.0b1 which has a completely different API
+# from the main app (which uses azure-ai-projects==1.1.0b3).
+#
+# The dual-venv approach (evaluate.sh / evaluate.ps1) installs:
+#   - .venv-generate: main app requirements.txt (for generate_eval_input.py)
+#   - .venv-evaluate: this file (for evaluate.py)
+#
+# DO NOT mix SDKs - they have incompatible agents/evaluation APIs.
+# =============================================================================
 
-# — Data handling & reporting
-pandas
+# Core evaluation dependencies
+azure-ai-projects>=2.0.0b1
+azure-ai-evaluation[redteam]==1.12.0
+openai>=1.108.0
 
-# — Azure App Configuration & Identity (AppConfigClient)
+# Azure Identity & Configuration
 azure-identity==1.21.0
 azure-appconfiguration==1.7.1
+azure.appconfiguration.provider
+azure-keyvault-secrets==4.7.0
 
-# — Cosmos DB (async client used by your CosmosDBClient)
+# Azure Resources
 azure-cosmos==4.5.1
-
-# — Azure AI Search (used by generate_eval_input.py)
-# azure-search-documents==11.5.2
 azure-search-documents==11.7.0b1
-
-# — Azure AI Projects & Agents (used by your strategies & evaluate.py)
-# Upgraded to 2.0.0b1 for new evaluation API (Feb 2026)
-azure-ai-projects>=2.0.0b1
-azure-ai-agents
-
-# — Azure AI Evaluation SDK
-# azure-ai-evaluation
-azure-ai-evaluation[redteam]==1.12.0
-azure-identity==1.21.0
 azure-mgmt-web==8.0.0
 azure-mgmt-storage==22.1.1
 azure-storage-blob==12.25.1
-# - Key Vault (if you use it for secrets)
-azure-keyvault-secrets==4.7.0
+
+# Web framework (for red team callback)
 fastapi==0.115.12
 uvicorn==0.34.1
-# (Optional) If you ever load from a .env in this venv:
-# python-dotenv
-#opentelemetry
+requests==2.32.4
+
+# Data handling
+pandas
+tenacity
+
+# Telemetry
 azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter
 opentelemetry-instrumentation-httpx==0.52b1
 opentelemetry-instrumentation-fastapi
-azure-appconfiguration==1.7.1
-azure.appconfiguration.provider
-# Utility dependencies
-tenacity
-# AI and NLP dependencies
+
+# NLP
 tiktoken==0.7.0
-openai>=1.108.0
-#prompty==0.1.47
-# Semantic Kernel dependencies
-semantic-kernel[mcp]==1.34.0
 aiohttp==3.12.14
 pydantic==2.11.4
 # NL2SQL dependencies

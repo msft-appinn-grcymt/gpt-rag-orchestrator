@@ -35,10 +35,10 @@ from openai.types.eval_create_params import DataSourceConfigCustom
 
 from appconfig import AppConfigClient
 from keyvault import KeyVaultClient
-from azure.ai.evaluation.red_team import RedTeam, RiskCategory, AttackStrategy
-from fastapi.testclient import TestClient
-# Import the FastAPI app; ensure PYTHONPATH includes the 'src' directory
-from src.main import app
+
+# Red team configuration - calls the app via HTTP endpoint
+RED_TEAM_ENABLED = os.getenv("ENABLE_RED_TEAM", "true").lower() == "true"
+import requests as http_requests  # For red team HTTP calls
 
 # Suppress Azure SDK HTTP logging
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
@@ -329,43 +329,65 @@ with (
     if run.report_url:
         logger.info(f"Report: {run.report_url}")
 
-## Red teaming (using azure-ai-evaluation SDK - unchanged API) ##
+# =============================================================================
+# RED TEAM SCANNING
+# =============================================================================
+# Uses HTTP requests to call the running app endpoint (avoids SDK import conflicts)
+# The app must be running and accessible at APP_ENDPOINT
 
-async def run_red_team_scan():
-    logger.info(f"### Red Teaming Scan Starting ###")
-
-    test_client = TestClient(app)
-
-    def app_callback(query: str) -> str:
-        resp = test_client.post("/orchestrator", json={"ask": query, "conversation_id": None}, headers={"X-API-KEY": "sample"})
-        response_text = resp.text
-        return response_text
-
-    logger.info(f"Initiating Red Teaming Scan...")
-
-    commit_id = os.getenv("COMMIT_ID") or "unknown"
-    eval_timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    red_teaming_display_name = f"Red Teaming-{commit_id}-{eval_timestamp}"
-
-    red_team_agent = RedTeam(
-        azure_ai_project=AZURE_AI_PROJECT, 
-        credential=credential,
-        risk_categories=[
-            RiskCategory.Violence,
-            RiskCategory.HateUnfairness,
-            RiskCategory.Sexual,
-            RiskCategory.SelfHarm
-        ], 
-        num_objectives=2,
-    )
-
-    result = await red_team_agent.scan(
-        target=app_callback,
-        scan_name=red_teaming_display_name,
-        attack_strategies=[AttackStrategy.Flip, AttackStrategy.Jailbreak, AttackStrategy.Tense],
-        output_path="red_team_output.json",
-    )
+if RED_TEAM_ENABLED:
+    from azure.ai.evaluation.red_team import RedTeam, RiskCategory, AttackStrategy
     
-    logger.info(f"Red Team scan completed. Results saved to red_team_output.json")
+    # Get app endpoint from config or environment
+    APP_ENDPOINT = os.getenv("APP_ENDPOINT") or cfg.get("APP_ENDPOINT") or "http://localhost:8000"
+    APP_API_KEY = os.getenv("APP_API_KEY") or cfg.get("APP_API_KEY") or "sample"
+    
+    async def run_red_team_scan():
+        logger.info(f"### Red Teaming Scan Starting ###")
+        logger.info(f"Target endpoint: {APP_ENDPOINT}")
 
-asyncio.run(run_red_team_scan())
+        def app_callback(query: str) -> str:
+            """Call the app via HTTP POST to /orchestrator endpoint."""
+            try:
+                resp = http_requests.post(
+                    f"{APP_ENDPOINT}/orchestrator",
+                    json={"ask": query, "conversation_id": None},
+                    headers={"X-API-KEY": APP_API_KEY},
+                    timeout=120
+                )
+                resp.raise_for_status()
+                return resp.text
+            except http_requests.exceptions.RequestException as e:
+                logger.error(f"Red team callback failed: {e}")
+                return f"Error: {e}"
+
+        logger.info(f"Initiating Red Teaming Scan...")
+
+        commit_id = os.getenv("COMMIT_ID") or "unknown"
+        eval_timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        red_teaming_display_name = f"Red Teaming-{commit_id}-{eval_timestamp}"
+
+        red_team_agent = RedTeam(
+            azure_ai_project=AZURE_AI_PROJECT, 
+            credential=credential,
+            risk_categories=[
+                RiskCategory.Violence,
+                RiskCategory.HateUnfairness,
+                RiskCategory.Sexual,
+                RiskCategory.SelfHarm
+            ], 
+            num_objectives=2,
+        )
+
+        result = await red_team_agent.scan(
+            target=app_callback,
+            scan_name=red_teaming_display_name,
+            attack_strategies=[AttackStrategy.Flip, AttackStrategy.Jailbreak, AttackStrategy.Tense],
+            output_path="red_team_output.json",
+        )
+        
+        logger.info(f"Red Team scan completed. Results saved to red_team_output.json")
+
+    asyncio.run(run_red_team_scan())
+else:
+    logger.info("Red team scan disabled. Set ENABLE_RED_TEAM=true to enable.")

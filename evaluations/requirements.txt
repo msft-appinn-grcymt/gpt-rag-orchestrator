@@ -1,56 +1,13 @@
 # =============================================================================
-# EVALUATION VENV REQUIREMENTS (azure-ai-projects SDK 2.0.0b1+)
+# EVALUATION EXTRAS (DEPRECATED)
 # =============================================================================
-# This requirements file is for the EVALUATION virtual environment ONLY.
-# It uses azure-ai-projects>=2.0.0b1 which has a completely different API
-# from the main app (which uses azure-ai-projects==1.1.0b3).
-#
-# The dual-venv approach (evaluate.sh / evaluate.ps1) installs:
-#   - .venv-generate: main app requirements.txt (for generate_eval_input.py)
-#   - .venv-evaluate: this file (for evaluate.py)
-#
-# DO NOT mix SDKs - they have incompatible agents/evaluation APIs.
+# All evaluation dependencies are now in the root requirements.txt.
+# This file is kept for backward compatibility with CI pipelines that
+# may reference it. The unified environment uses a single venv.
 # =============================================================================
-
-# Core evaluation dependencies
-azure-ai-projects>=2.0.0b1
-azure-ai-evaluation[redteam]==1.12.0
-openai>=1.108.0
-
-# Azure Identity & Configuration
-azure-identity==1.21.0
-azure-appconfiguration==1.7.1
-azure.appconfiguration.provider
-azure-keyvault-secrets==4.7.0
-
-# Azure Resources
-azure-cosmos==4.5.1
-azure-search-documents==11.7.0b1
-azure-mgmt-web==8.0.0
-azure-mgmt-storage==22.1.1
-azure-storage-blob==12.25.1
-
-# Web framework (for red team callback)
-fastapi==0.115.12
-uvicorn==0.34.1
-requests==2.32.4
-
-# Data handling
-pandas
-tenacity
-
-# Telemetry
-azure-monitor-opentelemetry
-azure-monitor-opentelemetry-exporter
-opentelemetry-instrumentation-httpx==0.52b1
-opentelemetry-instrumentation-fastapi
-
-# NLP
-tiktoken==0.7.0
-aiohttp==3.12.14
-pydantic==2.11.4
-# NL2SQL dependencies
-sqlparse==0.5.1
-pyodbc==5.1.0
-#PyRIT pinned due to interdependencies with prompty and azure-ai-evaluation
-pyrit==0.8.1
+# Primary dependencies (now in root requirements.txt):
+#   azure-ai-evaluation[redteam]==1.12.0
+#   pandas
+#
+# If you need to install eval-only extras separately:
+# pip install azure-ai-evaluation[redteam]==1.12.0 pandas

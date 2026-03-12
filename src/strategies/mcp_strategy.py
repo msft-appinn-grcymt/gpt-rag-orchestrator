@@ -2,19 +2,10 @@ import json
 import h11
 import logging
 
-from typing import Any, Optional
+from typing import Optional
 
 from util.tools import is_azure_environment
 from azure.identity import get_bearer_token_provider
-
-from azure.ai.agents.models import (
-    AsyncAgentEventHandler,
-    MessageDeltaChunk,
-    MessageDeltaTextUrlCitationAnnotation,
-    RunStep,
-    ThreadMessage,
-    ThreadRun,
-)
 
 from opentelemetry.trace import (
     SpanKind,
@@ -71,9 +62,8 @@ class McpStrategy(BaseAgentStrategy):
         # Force all logs at DEBUG or above to appear
         logging.debug("Initializing McpStrategy...")
 
-        # Event handler for streaming responses
+        # Strategy type identifier
         self.strategy_type = AgentStrategies.MCP
-        self.event_handler = EventHandler()
 
         cfg = get_config()
 
@@ -208,99 +198,3 @@ class McpStrategy(BaseAgentStrategy):
                 conv['user_context'] = self.user_context
 
             logging.debug(f"Final conversation messages: {conv['messages']}")
-
-class EventHandler(AsyncAgentEventHandler[str]):
-    """
-    Handles events emitted during the agent run lifecycle,
-    converting each into a human-readable string.
-    """
-
-    async def on_message_delta(self, delta: MessageDeltaChunk) -> Optional[str]:
-        """
-        Called when a partial message is received.
-        :param delta: Chunk of the message text.
-        :return: The text chunk.
-        """
-        logging.debug(f"EventHandler.on_message_delta called with delta={delta!r}")
-        text = delta.text
-
-        # Collect annotation objects, if any
-        raw = getattr(delta, "delta", None)
-        annotations = []
-        if raw:
-            for piece in getattr(raw, "content", []):
-                txt = getattr(piece, "text", None)
-                if not txt:
-                    continue
-                anns = getattr(txt, "annotations", None)
-                if not anns:
-                    continue
-                annotations.extend(anns)
-
-        for ann in annotations:
-            if isinstance(ann, MessageDeltaTextUrlCitationAnnotation) and "url_citation" in ann:
-                info = ann["url_citation"]
-                placeholder = ann["text"]
-            else:
-                continue
-            url = info.get("url")
-            title = info.get("title", url)
-            if url and placeholder:
-                text = text.replace(placeholder, f"[{title}]({url})")
-
-        # logging.trace(f"on_message_delta returning text={text!r}")
-        return text
-
-    async def on_thread_message(self, message: ThreadMessage) -> Optional[str]:
-        """
-        Called when a new thread message object is created.
-        :param message: The ThreadMessage instance.
-        :return: Summary including message ID and status.
-        """
-        logging.debug(f"EventHandler.on_thread_message called: ID={message.id}, status={message.status}")
-        return f"Thread message created: ID={message.id}, status={message.status}"
-
-    async def on_thread_run(self, run: ThreadRun) -> Optional[str]:
-        """
-        Called when a new thread run event occurs.
-        :param run: The ThreadRun instance.
-        :return: Summary of the run status.
-        """
-        logging.debug(f"EventHandler.on_thread_run called: status={run.status}")
-        return f"Thread run status: {run.status}"
-
-    async def on_run_step(self, step: RunStep) -> Optional[str]:
-        """
-        Called at each step of the run pipeline.
-        :param step: The RunStep instance.
-        :return: Type and status of the step.
-        """
-        logging.debug(f"EventHandler.on_run_step called: type={step.type}, status={step.status}")
-        return f"Run step: type={step.type}, status={step.status}"
-
-    async def on_error(self, data: str) -> Optional[str]:
-        """
-        Called when an error occurs during the stream.
-        :param data: Error information.
-        :return: Formatted error message.
-        """
-        logging.debug(f"EventHandler.on_error called with data={data!r}")
-        return f"Error in stream: {data}"
-
-    async def on_done(self) -> Optional[str]:
-        """
-        Called when the streaming completes successfully.
-        :return: Completion message.
-        """
-        logging.debug("EventHandler.on_done called")
-        return "Streaming completed"
-
-    async def on_unhandled_event(self, event_type: str, event_data: Any) -> Optional[str]:
-        """
-        Catches any events not handled by other methods.
-        :param event_type: The type identifier of the event.
-        :param event_data: The raw event payload.
-        :return: Description of the unhandled event.
-        """
-        logging.debug(f"EventHandler.on_unhandled_event called: type={event_type}, data={event_data!r}")
-        return f"Unhandled event: type={event_type}, data={event_data}"

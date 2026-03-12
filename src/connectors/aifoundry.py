@@ -54,6 +54,7 @@ class GenAIModelClient:
 
         # Foundry client for chat/completions
         self.foundry_client = AIProjectClient(endpoint=self.foundry_project_endpoint, credential=credential)
+        self._chat_client = self.foundry_client.get_openai_client()
 
         # Azure OpenAI client for embeddings (default)
         token_provider = get_bearer_token_provider(
@@ -79,16 +80,15 @@ class GenAIModelClient:
         prompt = self._truncate(prompt, self.max_chat_tokens)
 
         try:
-            response = self.foundry_client.chat.completions.create(
-                deployment_name=self.chat_deployment,
+            response = self._chat_client.chat.completions.create(
+                model=self.chat_deployment,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user",   "content": prompt}
                 ],
                 temperature=self.temperature,
                 top_p=self.top_p,
-                max_tokens=max_tokens
-                # No API key or model-endpoint headers needed with Entra ID
+                max_tokens=max_tokens,
             )
             return response.choices[0].message.content
         except HttpResponseError as e:

@@ -36,9 +36,8 @@ from openai.types.eval_create_params import DataSourceConfigCustom
 from appconfig import AppConfigClient
 from keyvault import KeyVaultClient
 
-# Red team configuration - calls the app via HTTP endpoint
+# Red team configuration
 RED_TEAM_ENABLED = os.getenv("ENABLE_RED_TEAM", "true").lower() == "true"
-import requests as http_requests  # For red team HTTP calls
 
 # Suppress Azure SDK HTTP logging
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
@@ -332,32 +331,30 @@ with (
 # =============================================================================
 # RED TEAM SCANNING
 # =============================================================================
-# Uses HTTP requests to call the running app endpoint (avoids SDK import conflicts)
-# The app must be running and accessible at APP_ENDPOINT
+# Runs in-process via FastAPI TestClient (unified SDK — no import conflicts)
 
 if RED_TEAM_ENABLED:
     from azure.ai.evaluation.red_team import RedTeam, RiskCategory, AttackStrategy
+    from fastapi.testclient import TestClient
+    from src.main import app  # No SDK conflict — unified on azure-ai-projects 2.0
     
-    # Get app endpoint from config or environment
-    APP_ENDPOINT = os.getenv("APP_ENDPOINT") or cfg.get("APP_ENDPOINT") or "http://localhost:8000"
+    test_client = TestClient(app)
     APP_API_KEY = os.getenv("APP_API_KEY") or cfg.get("APP_API_KEY") or "sample"
     
     async def run_red_team_scan():
-        logger.info(f"### Red Teaming Scan Starting ###")
-        logger.info(f"Target endpoint: {APP_ENDPOINT}")
+        logger.info("### Red Teaming Scan Starting (in-process via TestClient) ###")
 
         def app_callback(query: str) -> str:
-            """Call the app via HTTP POST to /orchestrator endpoint."""
+            """Call the app in-process via TestClient."""
             try:
-                resp = http_requests.post(
-                    f"{APP_ENDPOINT}/orchestrator",
+                resp = test_client.post(
+                    "/orchestrator",
                     json={"ask": query, "conversation_id": None},
                     headers={"X-API-KEY": APP_API_KEY},
-                    timeout=120
                 )
                 resp.raise_for_status()
                 return resp.text
-            except http_requests.exceptions.RequestException as e:
+            except Exception as e:
                 logger.error(f"Red team callback failed: {e}")
                 return f"Error: {e}"
 

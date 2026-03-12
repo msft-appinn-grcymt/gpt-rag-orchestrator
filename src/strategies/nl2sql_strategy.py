@@ -3,7 +3,7 @@ import re
 from typing import AsyncIterator
 
 from semantic_kernel.agents import ChatCompletionAgent
-from semantic_kernel.agents.orchestration import GroupChatOrchestration, RoundRobinGroupChatManager
+from semantic_kernel.agents.orchestration.group_chat import GroupChatOrchestration, RoundRobinGroupChatManager
 from semantic_kernel.agents.runtime import InProcessRuntime
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion

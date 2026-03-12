@@ -250,29 +250,38 @@ with (
         },
     ]
 
-    # 6) Create evaluation definition
+    # 6) Create or reuse evaluation definition
+    # When EVAL_ID is set (e.g., from GH repo variable), reuse an existing
+    # evaluation definition so runs accumulate under it for comparison.
+    # When not set, create a new evaluation definition per run.
     commit_id = os.getenv("COMMIT_ID") or (sys.argv[1] if len(sys.argv) > 1 else "unknown")
     eval_timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    eval_name = f"Auto evaluation-{commit_id}-{eval_timestamp}"
+    existing_eval_id = os.getenv("EVAL_ID")
 
-    logger.info(f"Creating evaluation definition: {eval_name}")
-    try:
-        eval_object = client.evals.create(
-            name=eval_name,
-            data_source_config=data_source_config,
-            testing_criteria=testing_criteria,  # type: ignore
-        )
-        logger.info(f"Evaluation definition created (id: {eval_object.id})")
-    except Exception as e:
-        logger.error(f"Evaluation definition creation failed: {e}")
-        sys.exit(1)
+    if existing_eval_id:
+        logger.info(f"Reusing existing evaluation definition: {existing_eval_id}")
+        eval_id = existing_eval_id
+    else:
+        eval_name = f"Auto evaluation-{commit_id}-{eval_timestamp}"
+        logger.info(f"Creating evaluation definition: {eval_name}")
+        try:
+            eval_object = client.evals.create(
+                name=eval_name,
+                data_source_config=data_source_config,
+                testing_criteria=testing_criteria,  # type: ignore
+            )
+            eval_id = eval_object.id
+            logger.info(f"Evaluation definition created (id: {eval_id})")
+        except Exception as e:
+            logger.error(f"Evaluation definition creation failed: {e}")
+            sys.exit(1)
 
-    # 7) Create evaluation run with the uploaded dataset
+    # 7) Create evaluation run under the (new or existing) evaluation definition
     run_name = f"eval-run-{commit_id}-{eval_timestamp}"
     logger.info(f"Creating evaluation run: {run_name}")
     try:
         eval_run = client.evals.runs.create(
-            eval_id=eval_object.id,
+            eval_id=eval_id,
             name=run_name,
             metadata={
                 "commit_id": commit_id,
@@ -295,10 +304,10 @@ with (
     # 8) Wait for evaluation to complete and get results
     logger.info("Waiting for evaluation run to complete...")
     while True:
-        run = client.evals.runs.retrieve(run_id=eval_run.id, eval_id=eval_object.id)
+        run = client.evals.runs.retrieve(run_id=eval_run.id, eval_id=eval_id)
         if run.status == "completed":
             logger.info(f"Evaluation completed successfully!")
-            output_items = list(client.evals.runs.output_items.list(run_id=run.id, eval_id=eval_object.id))
+            output_items = list(client.evals.runs.output_items.list(run_id=run.id, eval_id=eval_id))
             
             # Save results to file
             results_path = Path(__file__).parent / "evaluation-results.json"
@@ -322,7 +331,7 @@ with (
     logger.info("=" * 60)
     logger.info("EVALUATION SUMMARY")
     logger.info("=" * 60)
-    logger.info(f"Evaluation ID: {eval_object.id}")
+    logger.info(f"Evaluation ID: {eval_id}")
     logger.info(f"Run ID: {eval_run.id}")
     logger.info(f"Status: {run.status}")
     if run.report_url:

@@ -17,6 +17,7 @@ jobs:
       AZURE_CLIENT_ID:       ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
       APP_CONFIG_ENDPOINT:   ${{ vars.APP_CONFIG_ENDPOINT }}
       COMMIT_ID:             ${{ github.event.pull_request.head.sha }}
+      EVAL_ID:               ${{ vars.EVAL_ID }}
 
     steps:
       - name: Checkout code

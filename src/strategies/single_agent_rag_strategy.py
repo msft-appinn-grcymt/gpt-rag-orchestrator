@@ -517,10 +517,17 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
             create_agent = False
             agent = None
             if self.existing_agent_id:
-                logging.debug("agent_id exists; retrieving existing agent...")
-                agent = await project_client.agents.get_agent(self.existing_agent_id)
-                logging.info(f"Reused agent with ID: {agent.id}")
-            else:
+                logging.debug("existing agent configured; retrieving via get_version()...")
+                try:
+                    agent = await project_client.agents.get_version(
+                        agent_name=self.existing_agent_id,
+                        version="latest",
+                    )
+                    logging.info(f"Reused agent: name={agent.name}, version={agent.version}")
+                except Exception as e:
+                    logging.warning(f"Failed to get existing agent '{self.existing_agent_id}': {e}. Will create new.")
+                    agent = None
+            if agent is None:
                 logging.debug("creating agent via create_version()...")
                 instructions = await self._read_prompt("main")
                 instructions += """

@@ -14,8 +14,14 @@ azure-search-documents==11.7.0b1
 tiktoken==0.7.0
 openai>=1.108.0
 
-# Semantic Kernel dependencies
-semantic-kernel[mcp]>=1.40.0
+# Semantic Kernel sub-dependencies
+# NOTE: semantic-kernel>=1.40.0 is installed separately with --no-deps
+# because it pins azure-ai-projects~=1.0.0b12 as a core dependency,
+# which conflicts with azure-ai-projects>=2.0.0. Our code only uses
+# ChatCompletionAgent, GroupChatOrchestration, Kernel, AzureChatCompletion,
+# MCPSsePlugin, and kernel_function — none of which need azure-ai-agents.
+mcp>=1.8
+pydantic-settings>=2.0
 aiohttp==3.12.14
 pydantic==2.11.4
 

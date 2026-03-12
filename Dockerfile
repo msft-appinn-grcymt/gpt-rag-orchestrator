@@ -35,6 +35,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # 6. Install Python requirements
 COPY requirements.txt .
 RUN pip install --upgrade pip \
+    && pip install --no-deps 'semantic-kernel>=1.40.0' \
     && pip install -r requirements.txt
 
 # 7. Copy app code, expose port, and launch

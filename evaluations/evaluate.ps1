@@ -5,7 +5,7 @@ param(
 # =============================================================================
 # UNIFIED EVALUATION SCRIPT
 # =============================================================================
-# Single virtual environment — main app and evaluation SDK unified on
+# Single virtual environment ï¿½ main app and evaluation SDK unified on
 # azure-ai-projects>=2.0.0. Red team scanning runs in-process via TestClient.
 # =============================================================================
 
@@ -24,6 +24,7 @@ python -m venv evaluations\.venv
 & "evaluations\.venv\Scripts\Activate.ps1"
 
 pip install --upgrade pip
+pip install --no-deps 'semantic-kernel>=1.40.0'
 pip install -r requirements.txt
 
 Write-Host "Generating evaluation input dataset..."

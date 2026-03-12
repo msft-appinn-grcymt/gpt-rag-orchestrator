@@ -7,17 +7,31 @@ azure-mgmt-storage==22.1.1
 azure-storage-blob==12.25.1
 azure-appconfiguration==1.7.1
 azure.appconfiguration.provider
-azure-ai-projects==1.1.0b3
-azure-ai-agents==1.2.0b3
+azure-ai-projects>=2.0.0
 azure-search-documents==11.7.0b1
 
 # AI and NLP dependencies
 tiktoken==0.7.0
-openai==1.76.2
-prompty==0.1.50
+openai>=1.108.0
 
-# Semantic Kernel dependencies
-semantic-kernel[mcp]==1.34.0
+# Semantic Kernel sub-dependencies
+# NOTE: semantic-kernel>=1.40.0 is installed separately with --no-deps
+# because it pins azure-ai-projects~=1.0.0b12 as a core dependency,
+# which conflicts with azure-ai-projects>=2.0.0. Our code only uses
+# ChatCompletionAgent, GroupChatOrchestration, Kernel, AzureChatCompletion,
+# MCPSsePlugin, and kernel_function — none of which need azure-ai-agents.
+mcp>=1.8
+pydantic-settings>=2.0
+pybars4~=0.9
+nest-asyncio~=1.6
+defusedxml~=0.7
+openapi_core>=0.18,<0.20
+prance>=23.6.21,<25.4.9
+cloudevents~=1.0
+websockets>=13,<16
+aiortc>=1.9.0
+scipy>=1.15.1
+protobuf>=4.25.0
 aiohttp==3.12.14
 pydantic==2.11.4
 
@@ -40,3 +54,7 @@ azure-monitor-opentelemetry
 azure-monitor-opentelemetry-exporter
 opentelemetry-instrumentation-httpx==0.52b1
 opentelemetry-instrumentation-fastapi
+
+# Evaluation dependencies
+azure-ai-evaluation[redteam]==1.12.0
+pandas

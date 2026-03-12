@@ -1,6 +1,6 @@
 import os
 from typing import Dict, Any
-from azure.identity import ChainedTokenCredential, ManagedIdentityCredential, AzureCliCredential
+from azure.identity import ChainedTokenCredential, EnvironmentCredential, ManagedIdentityCredential, AzureCliCredential
 from azure.appconfiguration import AzureAppConfigurationClient
 from azure.core.exceptions import AzureError
 
@@ -14,7 +14,7 @@ class AppConfigClient:
         if not endpoint:
             raise EnvironmentError("APP_CONFIG_ENDPOINT must be set")
 
-        credential = ChainedTokenCredential(ManagedIdentityCredential(), AzureCliCredential())
+        credential = ChainedTokenCredential(EnvironmentCredential(), ManagedIdentityCredential(), AzureCliCredential())
         client = AzureAppConfigurationClient(base_url=endpoint, credential=credential)
 
         self._settings: Dict[str, str] = {}

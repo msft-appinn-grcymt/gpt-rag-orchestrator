@@ -1,56 +1,13 @@
-# — FastAPI & TestClient (for calling your app in-memory)
-requests==2.32.4
-
-# — Data handling & reporting
-pandas
-
-# — Azure App Configuration & Identity (AppConfigClient)
-azure-identity==1.21.0
-azure-appconfiguration==1.7.1
-
-# — Cosmos DB (async client used by your CosmosDBClient)
-azure-cosmos==4.5.1
-
-# — Azure AI Search (used by generate_eval_input.py)
-# azure-search-documents==11.5.2
-azure-search-documents==11.7.0b1
-
-# — Azure AI Projects & Agents (used by your strategies & evaluate.py)
-azure-ai-projects==1.0.0b11
-azure-ai-agents
-
-# — Azure AI Evaluation SDK
-# azure-ai-evaluation
-azure-ai-evaluation[redteam]==1.12.0
-azure-identity==1.21.0
-azure-mgmt-web==8.0.0
-azure-mgmt-storage==22.1.1
-azure-storage-blob==12.25.1
-# - Key Vault (if you use it for secrets)
-azure-keyvault-secrets==4.7.0
-fastapi==0.115.12
-uvicorn==0.34.1
-# (Optional) If you ever load from a .env in this venv:
-# python-dotenv
-#opentelemetry
-azure-monitor-opentelemetry
-azure-monitor-opentelemetry-exporter
-opentelemetry-instrumentation-httpx==0.52b1
-opentelemetry-instrumentation-fastapi
-azure-appconfiguration==1.7.1
-azure.appconfiguration.provider
-# Utility dependencies
-tenacity
-# AI and NLP dependencies
-tiktoken==0.7.0
-openai>=1.108.0
-#prompty==0.1.47
-# Semantic Kernel dependencies
-semantic-kernel[mcp]==1.34.0
-aiohttp==3.12.14
-pydantic==2.11.4
-# NL2SQL dependencies
-sqlparse==0.5.1
-pyodbc==5.1.0
-#PyRIT pinned due to interdependencies with prompty and azure-ai-evaluation
-pyrit==0.8.1
+# =============================================================================
+# EVALUATION EXTRAS (DEPRECATED)
+# =============================================================================
+# All evaluation dependencies are now in the root requirements.txt.
+# This file is kept for backward compatibility with CI pipelines that
+# may reference it. The unified environment uses a single venv.
+# =============================================================================
+# Primary dependencies (now in root requirements.txt):
+#   azure-ai-evaluation[redteam]==1.12.0
+#   pandas
+#
+# If you need to install eval-only extras separately:
+# pip install azure-ai-evaluation[redteam]==1.12.0 pandas

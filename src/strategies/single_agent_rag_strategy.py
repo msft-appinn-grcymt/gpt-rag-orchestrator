@@ -2,23 +2,15 @@ import logging
 import json
 from typing import Any, Optional
 
-from azure.ai.agents.models import (
-    AsyncAgentEventHandler,
-    AzureAISearchQueryType,
+from azure.ai.projects.models import (
+    PromptAgentDefinition,
     AzureAISearchTool,
+    AzureAISearchToolResource,
+    AISearchIndexResource,
     BingGroundingTool,
+    BingGroundingSearchToolParameters,
+    BingGroundingSearchConfiguration,
     FunctionTool,
-    ToolSet,
-    AgentsNamedToolChoice,
-    AgentsNamedToolChoiceType,
-    FunctionName,
-    ListSortOrder,
-    MessageDeltaChunk,
-    MessageDeltaTextUrlCitationAnnotation,
-    MessageTextContent,
-    RunStep,
-    ThreadMessage,
-    ThreadRun,
 )
 from azure.search.documents.agent import KnowledgeAgentRetrievalClient
 from azure.search.documents.agent.models import (
@@ -50,9 +42,8 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
         # Force all logs at DEBUG or above to appear
         logging.debug("Initializing SingleAgentRAGStrategy...")
 
-        # Event handler for streaming responses
+        # Strategy type
         self.strategy_type = AgentStrategies.SINGLE_AGENT_RAG
-        self.event_handler = EventHandler()
 
         cfg = get_config()
 
@@ -114,10 +105,15 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                 "BingGroundingTool will not be available."
             )
         else:
-            bing = BingGroundingTool(connection_id=bing_conn, count=5)
-            bing_def = bing.definitions[0]
-            self.tools_list.append(bing_def)
-            logging.debug(f"Added BingGroundingTool to tools_list: {bing_def}")
+            bing = BingGroundingTool(
+                bing_grounding=BingGroundingSearchToolParameters(
+                    search_configurations=[
+                        BingGroundingSearchConfiguration(project_connection_id=bing_conn)
+                    ]
+                )
+            )
+            self.tools_list.append(bing)
+            logging.debug(f"Added BingGroundingTool to tools_list: {bing}")
 
         # --- Initialize AzureAISearchTool (only if agentic retrieval is disabled) ---
         if not self.enable_agentic_retrieval:
@@ -136,25 +132,23 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                     "AzureAISearchTool will be unavailable."
                 )
             self.ai_search = AzureAISearchTool(
-                index_connection_id=azure_ai_conn_id,
-                index_name=index_name,
-                query_type=AzureAISearchQueryType.SIMPLE,
-                top_k=cfg.get("SEARCH_TOP_K", 5, int),
-                filter="",
+                azure_ai_search=AzureAISearchToolResource(
+                    indexes=[AISearchIndexResource(
+                        project_connection_id=azure_ai_conn_id,
+                        index_name=index_name,
+                        query_type="simple",
+                    )]
+                )
             )
-            ai_def = self.ai_search.definitions[0]
-            ai_res = self.ai_search.resources
-            logging.debug(f"Created AzureAISearchTool definition: {ai_def}")
-            logging.debug(f"AzureAISearchTool resources metadata: {ai_res}")
-            self.tools_list.append(ai_def)
-            self.tool_resources.update(ai_res)
+            logging.debug(f"Created AzureAISearchTool: {self.ai_search}")
+            self.tools_list.append(self.ai_search)
         else:
             logging.info("Using Agentic Retrieval - traditional AzureAISearchTool will not be initialized")
 
         logging.debug(f"Final tools_list: {self.tools_list}")
         logging.debug(f"Final tool_resources: {self.tool_resources}")
 
-    def _create_agentic_retrieval_tool(self, project_client, thread_id: str):
+    def _create_agentic_retrieval_tool(self, conversation_id: str):
         if not self.enable_agentic_retrieval:
             logging.warning("Agentic retrieval is not enabled. Tool will not be created.")
             return None
@@ -180,14 +174,13 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                     str: JSON array of documents with ref_id, content, and metadata fields.
                 """
                 try:
-                    logging.info(f"[agentic_retrieval] Function called for thread: {thread_id}")
+                    logging.info(f"[agentic_retrieval] Function called for conversation: {conversation_id}")
                     
-                    # Get messages from thread - following Microsoft's official example
-                    # Take the last 5 messages in the conversation
-                    converted_messages = self._recent_thread_messages.get(thread_id, [])
+                    # Get cached messages for retrieval context
+                    converted_messages = self._recent_thread_messages.get(conversation_id, [])
                     if not converted_messages:
-                        logging.warning("[agentic_retrieval] No cached messages found for thread; falling back to last user message")
-                        fallback_text = query or self._last_user_message_by_thread.get(thread_id, "")
+                        logging.warning("[agentic_retrieval] No cached messages found; falling back to last user message")
+                        fallback_text = query or self._last_user_message_by_thread.get(conversation_id, "")
                         if fallback_text:
                             converted_messages = [
                                 KnowledgeAgentMessage(
@@ -204,7 +197,6 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                             }])
                     logging.debug(f"Converted {len(converted_messages)} messages for retrieval request (query override provided: {bool(query)})")
                     
-                    # Log the messages being sent to agentic retrieval
                     logging.info(f"[agentic_retrieval] Calling retrieve with {len(converted_messages)} messages")
                     for idx, msg in enumerate(converted_messages):
                         logging.debug(f"[agentic_retrieval] Message {idx}: role={msg.role}, content_preview={msg.content[0].text[:100] if msg.content else 'empty'}...")
@@ -215,7 +207,7 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                         )
                     )
                     
-                    logging.info(f"[agentic_retrieval] Retrieval completed successfully")
+                    logging.info("[agentic_retrieval] Retrieval completed successfully")
                     
                     if retrieval_result.response and len(retrieval_result.response) > 0:
                         response_content = retrieval_result.response[0].content
@@ -262,17 +254,25 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                         }
                     ])
             
-            # Create FunctionTool and ToolSet following Microsoft's pattern
-            # - FunctionTool.definitions[0] for agent.tools list
-            # - agentic_retrieval function for enable_auto_function_calls
-            # - ToolSet for potential future use
-            functions = FunctionTool({agentic_retrieval})
-            toolset = ToolSet()
-            toolset.add(functions)
+            # Create schema-based FunctionTool for 2.0 API (no auto-execution)
+            function_tool = FunctionTool(
+                name="agentic_retrieval",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Optional query override for retrieval",
+                        }
+                    },
+                    "required": [],
+                },
+                description="Search and retrieve relevant information from the knowledge base to answer user questions.",
+            )
             
             logging.info("Agentic retrieval tool created successfully")
-            # Return: (function definition, function, toolset)
-            return (functions.definitions[0], agentic_retrieval, toolset)
+            # Return: (tool definition for agent, callable function for dispatch)
+            return (function_tool, agentic_retrieval)
         except Exception as e:
             logging.error(f"Failed to create agentic retrieval tool: {str(e)}", exc_info=True)
             return None
@@ -411,50 +411,50 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
 
         return json.dumps(payload)
 
-    async def _capture_recent_thread_messages(self, project_client, thread_id: str, limit: int = 5):
+    async def _capture_recent_conversation_messages(self, openai_client, conversation_id: str, limit: int = 5):
         """Collect the most recent conversational messages for retrieval context."""
         try:
-            paged = project_client.agents.messages.list(
-                thread_id=thread_id,
-                limit=limit,
-                order=ListSortOrder.DESCENDING
-            )
+            items = await openai_client.conversations.items.list(conversation_id=conversation_id)
             collected = []
-            async for item in paged:
+            async for item in items:
                 collected.append(item)
-            collected.reverse()
+            # Take only the last `limit` items
+            collected = collected[-limit:]
 
             converted_messages = []
             for msg in collected:
-                if msg.role == "system":
+                role = getattr(msg, "role", None)
+                if role == "system":
                     continue
                 content_text = ""
-                if hasattr(msg, "content") and msg.content:
-                    for content_item in msg.content:
-                        if isinstance(content_item, MessageTextContent):
-                            content_text = content_item.text.value
-                            break
+                # Extract text from item content
+                content_list = getattr(msg, "content", None)
+                if content_list:
+                    for content_item in content_list:
                         text_attr = getattr(content_item, "text", None)
                         if text_attr:
-                            content_text = text_attr
+                            content_text = text_attr if isinstance(text_attr, str) else getattr(text_attr, "value", str(text_attr))
                             break
-                if content_text:
+                if not content_text:
+                    # Try direct text attribute 
+                    content_text = getattr(msg, "text", "") or ""
+                if content_text and role:
                     converted_messages.append(
                         KnowledgeAgentMessage(
-                            role=msg.role,
+                            role=role,
                             content=[KnowledgeAgentMessageTextContent(text=content_text)]
                         )
                     )
             logging.debug(
-                "Prepared %d messages for agentic retrieval (thread_id=%s)",
+                "Prepared %d messages for agentic retrieval (conversation_id=%s)",
                 len(converted_messages),
-                thread_id,
+                conversation_id,
             )
             return converted_messages
         except Exception as exc:
             logging.error(
-                "Failed to capture recent messages for thread %s: %s",
-                thread_id,
+                "Failed to capture recent messages for conversation %s: %s",
+                conversation_id,
                 str(exc),
                 exc_info=True,
             )
@@ -473,72 +473,62 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
 
     async def initiate_agent_flow(self, user_message: str):
         """
-        Initiates the agent flow with dual behavior based on agentic retrieval setting.
+        Initiates the agent flow using azure-ai-projects 2.0 conversation/responses API.
         
-        Implementation follows Microsoft's official tutorial pattern:
-        https://learn.microsoft.com/en-us/azure/search/tutorial-rag-build-solution-agent-to-agent
+        Uses two clients:
+        - project_client: Agent CRUD (create_version, delete_version)
+        - openai_client: Conversations and responses (streaming)
         
         1. AGENTIC RETRIEVAL ENABLED (self.enable_agentic_retrieval = True):
            - Uses KnowledgeAgentRetrievalClient for intelligent retrieval
-           - Creates agentic_retrieval function with proper docstring
-           - Wraps function in FunctionTool and adds to ToolSet
-           - Registers ToolSet via enable_auto_function_calls()
-           - FORCES tool use via AgentsNamedToolChoice in stream params
-           - Passes toolset to stream() for execution
+           - Creates schema-based FunctionTool for agentic_retrieval
+           - Manual function-call dispatch loop (no auto-execution in 2.0)
            - Traditional AzureAISearchTool is NOT initialized
         
         2. AGENTIC RETRIEVAL DISABLED (self.enable_agentic_retrieval = False):
            - Uses traditional AzureAISearchTool
            - Tool is configured during __init__ and added to tools_list
-           - No custom function tools are created
            - Agent uses built-in AzureAISearchTool capabilities
         
         Both modes can optionally use BingGroundingTool if BING_CONNECTION_ID is configured.
         """
         logging.debug(f"invoke_stream called with user_message: {user_message!r}")
         conv = self.conversation
-        thread_id = conv.get("thread_id")
-        logging.debug(f"Current conversation state: thread_id={thread_id}")
+        # Backward-compatible conversation ID read (thread_id → conversation_id)
+        conversation_id = conv.get("conversation_id") or conv.get("thread_id")
+        logging.debug(f"Current conversation state: conversation_id={conversation_id}")
 
         async with self.project_client as project_client:
-            # Thread management - CREATE OR GET THREAD FIRST
-            if thread_id:
-                logging.debug(f"thread_id exists; calling get(thread_id={thread_id})")
-                thread = await project_client.agents.threads.get(thread_id)
-                logging.info(f"Reused thread with ID: {thread.id}")
-            else:
-                logging.debug("thread_id not found; calling create()")
-                thread = await project_client.agents.threads.create()
-                logging.info(f"Created new thread with ID: {thread.id}")
-
-            conv["thread_id"] = thread.id
-            logging.debug(f"Stored conv['thread_id'] = {thread.id}")
+            openai_client = project_client.get_openai_client()
 
             # Setup agentic retrieval tool if enabled (BEFORE creating agent)
             agentic_tool_definition = None
             agentic_function = None
-            agentic_toolset = None
             if self.enable_agentic_retrieval:
                 logging.info("Setting up agentic retrieval tool...")
-                result = self._create_agentic_retrieval_tool(project_client, thread.id)
+                result = self._create_agentic_retrieval_tool(conversation_id or "new")
                 if result:
-                    agentic_tool_definition, agentic_function, agentic_toolset = result
-                    # CRITICAL: enable_auto_function_calls expects a SET or LIST of Python functions
-                    project_client.agents.enable_auto_function_calls({agentic_function})
-                    logging.info(f"Agentic retrieval function registered: {agentic_function.__name__}")
-                    logging.info(f"  - Tool definition will be added to agent")
+                    agentic_tool_definition, agentic_function = result
+                    logging.info(f"Agentic retrieval function registered for manual dispatch")
                 else:
                     logging.warning("Failed to create agentic retrieval functions, proceeding without it")
 
             # Agent management
             create_agent = False
+            agent = None
             if self.existing_agent_id:
-                logging.debug("agent_id exists; calling update_agent(...)")
-                agent = await project_client.agents.get_agent(self.existing_agent_id)
-                logging.info(f"Reused agent with ID: {agent.id}")
-            else:
-                logging.debug("creating agent(...)")
-                # Use enhanced instructions for retrieval behavior
+                logging.debug("existing agent configured; retrieving via get_version()...")
+                try:
+                    agent = await project_client.agents.get_version(
+                        agent_name=self.existing_agent_id,
+                        agent_version="latest",
+                    )
+                    logging.info(f"Reused agent: name={agent.name}, version={agent.version}")
+                except Exception as e:
+                    logging.warning(f"Failed to get existing agent '{self.existing_agent_id}': {e}. Will create new.")
+                    agent = None
+            if agent is None:
+                logging.debug("creating agent via create_version()...")
                 instructions = await self._read_prompt("main")
                 instructions += """
 
@@ -583,227 +573,198 @@ GUIDANCE FOR AZURE AI SEARCH TOOL:
 
 Example: "The emergency room copay for in-network services is $100 [Benefits Summary](benefits-summary.pdf)."""
                 
-                # Prepare tools list - add agentic retrieval tool if enabled
+                # Prepare tools list — add agentic retrieval tool if enabled
                 tools_list = self.tools_list.copy()
                 if self.enable_agentic_retrieval and agentic_tool_definition:
                     tools_list.append(agentic_tool_definition)
-                    logging.info(f"Added agentic_retrieval to agent tools list")
+                    logging.info("Added agentic_retrieval to agent tools list")
                 
-                agent = await project_client.agents.create_agent(
-                    model=self.model_name,
-                    name="gpt-rag-agent",
-                    instructions=instructions,
-                    tools=tools_list,
-                    tool_resources=self.tool_resources
+                agent = await project_client.agents.create_version(
+                    agent_name="gpt-rag-agent",
+                    definition=PromptAgentDefinition(
+                        model=self.model_name,
+                        instructions=instructions,
+                        tools=tools_list,
+                    ),
                 )
                 create_agent = True
-                logging.info(f"Created new agent with ID: {agent.id}")
+                logging.info(f"Created agent: name={agent.name}, version={agent.version}")
 
-            conv["agent_id"] = agent.id
+            conv["agent_name"] = agent.name
+            conv["agent_version"] = agent.version
 
-            # Send user message
-            logging.debug(f"Sending user message into thread {thread.id}: {user_message!r}")
-            await project_client.agents.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content=user_message
-            )
-            logging.debug("User message sent.")
+            # Conversation management — create or reuse
+            if not conversation_id:
+                logging.debug("No conversation_id; creating new conversation with user message...")
+                conversation = await openai_client.conversations.create(
+                    items=[{"type": "message", "role": "user", "content": user_message}],
+                )
+                conversation_id = conversation.id
+                logging.info(f"Created new conversation with ID: {conversation_id}")
+            else:
+                logging.debug(f"Reusing conversation_id={conversation_id}; adding user message...")
+                await openai_client.conversations.items.create(
+                    conversation_id=conversation_id,
+                    item={"type": "message", "role": "user", "content": user_message},
+                )
+                logging.info(f"Added user message to existing conversation: {conversation_id}")
 
+            conv["conversation_id"] = conversation_id
+            logging.debug(f"Stored conv['conversation_id'] = {conversation_id}")
+
+            # Cache messages for agentic retrieval
             if self.enable_agentic_retrieval:
-                self._last_user_message_by_thread[thread.id] = user_message
-                cached_messages = await self._capture_recent_thread_messages(project_client, thread.id)
+                self._last_user_message_by_thread[conversation_id] = user_message
+                cached_messages = await self._capture_recent_conversation_messages(
+                    openai_client, conversation_id
+                )
                 if cached_messages:
-                    self._recent_thread_messages[thread.id] = cached_messages
+                    self._recent_thread_messages[conversation_id] = cached_messages
                 else:
                     logging.warning(
-                        "Agentic retrieval cache is empty for thread %s; retrieval will rely on tool arguments",
-                        thread.id,
+                        "Agentic retrieval cache is empty for conversation %s; "
+                        "retrieval will rely on tool arguments",
+                        conversation_id,
                     )
 
-            # Stream back the agent answer
-            logging.debug(f"About to call project_client.agents.runs.stream(...) "
-                          f"for agent_id={agent.id}, thread_id={thread.id}")
-            stream_params = {
-                "thread_id": thread.id,
-                "agent_id": agent.id,
-                "event_handler": self.event_handler
-            }
-            
-            # Add tool_choice for agentic retrieval to force it to be called first
-            # Note: toolset is NOT passed here - functions are already registered via enable_auto_function_calls
-            if self.enable_agentic_retrieval and agentic_toolset:
-                stream_params["tool_choice"] = AgentsNamedToolChoice(
-                    type=AgentsNamedToolChoiceType.FUNCTION,
-                    function=FunctionName(name="agentic_retrieval")
-                )
-                logging.info("🎯 Agentic retrieval configured with FORCED tool_choice")
-                logging.debug(f"   tool_choice: agentic_retrieval (function is auto-registered)")
-            else:
-                logging.debug("Using traditional tools (no agentic retrieval)")
-            
-            async with await project_client.agents.runs.stream(**stream_params) as stream:
-                logging.debug("Entered streaming context; beginning to iterate over events...")
-                async for event_type, event_data, raw in stream:
-                    # Log important events
-                    if event_type.startswith("thread.run.step"):
-                        logging.info(f"Stream event: {event_type}")
-                    elif event_type.startswith("thread.run"):
-                        logging.info(f"Stream event: {event_type}")
-                    else:
-                        logging.debug(f"Stream event: type={event_type}")
-                    
-                    # Log tool calls
-                    if "tool_calls" in event_type or (hasattr(event_data, 'type') and 'tool' in str(event_data.type)):
-                        logging.info(f"🔧 Tool call event: {event_type}, data={event_data}")
-                    
-                    if event_type == "thread.message.delta" and hasattr(event_data, "text"):
-                        chunk = raw or "".join(event_data.text)
-                        yield chunk
-                    elif event_type == "thread.run.failed":
-                        err = event_data.last_error.message
-                        logging.error(f"Stream encountered failure: {err}")
-                        raise Exception(err)
-                logging.debug("Streaming context closed (the run is complete).")
-
-            # After streaming, list all messages in the thread
-            logging.debug("Fetching all messages from thread in ascending order...")
-            conv["messages"] = []
-            messages = project_client.agents.messages.list(
-                thread_id=thread.id,
-                order=ListSortOrder.ASCENDING
+            # Stream response using the 2.0 responses API with SSE events
+            logging.debug(
+                f"Streaming response for agent={agent.name}, conversation={conversation_id}"
             )
-            async for msg in messages:
-                if isinstance(msg.content[-1], MessageTextContent):
-                    text_val = msg.content[-1].text.value
-                    logging.debug(f"Retrieved message in thread: role={msg.role}, text={text_val!r}")
-                    conv["messages"].append({
-                        "role": msg.role,
-                        "text": text_val
-                    })
+            
+            # Build the function dispatch map for manual function-call handling
+            function_dispatch = {}
+            if self.enable_agentic_retrieval and agentic_function:
+                function_dispatch["agentic_retrieval"] = agentic_function
+
+            # Use a while loop to handle multiple sequential function calls
+            input_items = []  # Additional input (function call outputs)
+            previous_response_id = None
+
+            while True:
+                # Build response creation parameters
+                response_kwargs = {
+                    "conversation": conversation_id,
+                    "stream": True,
+                    "extra_body": {
+                        "agent_reference": {
+                            "name": agent.name,
+                            "version": agent.version,
+                            "type": "agent_reference",
+                        }
+                    },
+                }
+                if previous_response_id:
+                    response_kwargs["previous_response_id"] = previous_response_id
+                if input_items:
+                    response_kwargs["input"] = input_items
+
+                response_stream = await openai_client.responses.create(**response_kwargs)
+
+                has_function_calls = False
+                function_outputs = []
+                current_response_id = None
+
+                async for event in response_stream:
+                    event_type = getattr(event, "type", "")
+
+                    if event_type == "response.output_text.delta":
+                        yield event.delta
+
+                    elif event_type == "response.output_item.done":
+                        item = getattr(event, "item", None)
+                        if item and getattr(item, "type", "") == "function_call":
+                            has_function_calls = True
+                            func_name = item.name
+                            func_args_str = getattr(item, "arguments", "{}")
+                            call_id = item.call_id
+                            logging.info(f"Function call: {func_name}(args={func_args_str[:200]})")
+
+                            # Dispatch function call
+                            handler = function_dispatch.get(func_name)
+                            if handler:
+                                try:
+                                    args = json.loads(func_args_str) if func_args_str else {}
+                                    result = handler(**args)
+                                    function_outputs.append({
+                                        "type": "function_call_output",
+                                        "call_id": call_id,
+                                        "output": result if isinstance(result, str) else json.dumps(result),
+                                    })
+                                except Exception as func_err:
+                                    logging.error(f"Function {func_name} failed: {func_err}", exc_info=True)
+                                    function_outputs.append({
+                                        "type": "function_call_output",
+                                        "call_id": call_id,
+                                        "output": json.dumps({"error": str(func_err)}),
+                                    })
+                            else:
+                                logging.warning(f"No handler for function: {func_name}")
+                                function_outputs.append({
+                                    "type": "function_call_output",
+                                    "call_id": call_id,
+                                    "output": json.dumps({"error": f"Unknown function: {func_name}"}),
+                                })
+
+                    elif event_type == "response.completed":
+                        response_obj = getattr(event, "response", None)
+                        if response_obj:
+                            current_response_id = getattr(response_obj, "id", None)
+                        break
+
+                    elif event_type == "response.failed":
+                        error_info = getattr(event, "error", None) or event
+                        logging.error(f"Response stream failed: {error_info}")
+                        raise Exception(f"Agent response failed: {error_info}")
+
+                # If there were function calls, submit outputs and loop for next response
+                if has_function_calls and function_outputs:
+                    previous_response_id = current_response_id
+                    input_items = function_outputs
+                    logging.info(f"Submitting {len(function_outputs)} function outputs, continuing...")
+                    continue
+                else:
+                    # No more function calls — done
+                    break
+
+            logging.debug("Streaming complete.")
+
+            # Collect final conversation messages for state persistence
+            logging.debug("Fetching conversation items for state persistence...")
+            conv["messages"] = []
+            try:
+                items = await openai_client.conversations.items.list(
+                    conversation_id=conversation_id
+                )
+                async for msg in items:
+                    role = getattr(msg, "role", None)
+                    content_text = ""
+                    content_list = getattr(msg, "content", None)
+                    if content_list:
+                        for content_item in content_list:
+                            text_attr = getattr(content_item, "text", None)
+                            if text_attr:
+                                content_text = text_attr if isinstance(text_attr, str) else getattr(text_attr, "value", str(text_attr))
+                                break
+                    if not content_text:
+                        content_text = getattr(msg, "text", "") or ""
+                    if content_text and role:
+                        logging.debug(f"Retrieved message: role={role}, text={content_text[:100]!r}")
+                        conv["messages"].append({
+                            "role": role,
+                            "text": content_text,
+                        })
+            except Exception as exc:
+                logging.warning(f"Failed to fetch conversation items: {exc}")
+
             logging.debug(f"Final conversation messages: {conv['messages']}")
 
             if self.user_context:
                 conv['user_context'] = self.user_context
 
             if create_agent:
-                logging.debug(f"Deleting agent with ID: {agent.id}")
-                await project_client.agents.delete_agent(agent.id)
+                logging.debug(f"Deleting agent: name={agent.name}, version={agent.version}")
+                await project_client.agents.delete_version(
+                    agent_name=agent.name, agent_version=agent.version
+                )
                 logging.debug("Agent deletion complete.")
-
-
-class EventHandler(AsyncAgentEventHandler[str]):
-    """
-    Handles events emitted during the agent run lifecycle,
-    converting each into a human-readable string.
-    """
-
-    async def on_message_delta(self, delta: MessageDeltaChunk) -> Optional[str]:
-        """
-        Called when a partial message is received.
-        :param delta: Chunk of the message text.
-        :return: The text chunk.
-        """
-        logging.debug(f"EventHandler.on_message_delta called with delta={delta!r}")
-        text = delta.text
-
-        # Collect annotation objects, if any
-        raw = getattr(delta, "delta", None)
-        annotations = []
-        if raw:
-            for piece in getattr(raw, "content", []):
-                txt = getattr(piece, "text", None)
-                if not txt:
-                    continue
-                anns = getattr(txt, "annotations", None)
-                if not anns:
-                    continue
-                annotations.extend(anns)
-
-        for ann in annotations:
-            if isinstance(ann, MessageDeltaTextUrlCitationAnnotation) and "url_citation" in ann:
-                info = ann["url_citation"]
-                placeholder = ann["text"]
-            else:
-                continue
-            url = info.get("url")
-            title = info.get("title", url)
-            if url and placeholder:
-                # Extract filepath from URL or use title as fallback
-                filepath = None
-                if url:
-                    # Try to extract filename from URL
-                    if "/" in url:
-                        filepath = url.split("/")[-1]
-                    elif "." in url:
-                        filepath = url
-                
-                if not filepath and title:
-                    # If no filepath found, check if title contains a file extension
-                    if "." in title and not title.startswith("http"):
-                        filepath = title
-                    else:
-                        # Try to construct filepath from title
-                        filepath = title.replace(" ", "_") + ".pdf"
-                
-                # Format as [title](filepath)
-                final_title = title if title else "Document"
-                final_filepath = filepath if filepath else "unknown.pdf"
-                text = text.replace(placeholder, f"[{final_title}]({final_filepath})")
-
-        # logging.trace(f"on_message_delta returning text={text!r}")
-        return text
-
-    async def on_thread_message(self, message: ThreadMessage) -> Optional[str]:
-        """
-        Called when a new thread message object is created.
-        :param message: The ThreadMessage instance.
-        :return: Summary including message ID and status.
-        """
-        logging.debug(f"EventHandler.on_thread_message called: ID={message.id}, status={message.status}")
-        return f"Thread message created: ID={message.id}, status={message.status}"
-
-    async def on_thread_run(self, run: ThreadRun) -> Optional[str]:
-        """
-        Called when a new thread run event occurs.
-        :param run: The ThreadRun instance.
-        :return: Summary of the run status.
-        """
-        logging.debug(f"EventHandler.on_thread_run called: status={run.status}")
-        return f"Thread run status: {run.status}"
-
-    async def on_run_step(self, step: RunStep) -> Optional[str]:
-        """
-        Called at each step of the run pipeline.
-        :param step: The RunStep instance.
-        :return: Type and status of the step.
-        """
-        logging.debug(f"EventHandler.on_run_step called: type={step.type}, status={step.status}")
-        return f"Run step: type={step.type}, status={step.status}"
-
-    async def on_error(self, data: str) -> Optional[str]:
-        """
-        Called when an error occurs during the stream.
-        :param data: Error information.
-        :return: Formatted error message.
-        """
-        logging.debug(f"EventHandler.on_error called with data={data!r}")
-        return f"Error in stream: {data}"
-
-    async def on_done(self) -> Optional[str]:
-        """
-        Called when the streaming completes successfully.
-        :return: Completion message.
-        """
-        logging.debug("EventHandler.on_done called")
-        return "Streaming completed"
-
-    async def on_unhandled_event(self, event_type: str, event_data: Any) -> Optional[str]:
-        """
-        Catches any events not handled by other methods.
-        :param event_type: The type identifier of the event.
-        :param event_data: The raw event payload.
-        :return: Description of the unhandled event.
-        """
-        logging.debug(f"EventHandler.on_unhandled_event called: type={event_type}, data={event_data!r}")
-        return f"Unhandled event: type={event_type}, data={event_data}"

@@ -2,49 +2,45 @@ param(
     [switch]$SkipEval
 )
 
-# 1) Validate
+# =============================================================================
+# UNIFIED EVALUATION SCRIPT
+# =============================================================================
+# Single virtual environment � main app and evaluation SDK unified on
+# azure-ai-projects>=2.0.0. Red team scanning runs in-process via TestClient.
+# =============================================================================
+
+$ErrorActionPreference = "Stop"
+
 if (-not $Env:APP_CONFIG_ENDPOINT) {
-    Write-Error "❌ APP_CONFIG_ENDPOINT environment variable is required"
+    Write-Error "APP_CONFIG_ENDPOINT environment variable is required"
     exit 1
 }
 
-# 2) Create & activate venv
-python -m venv evaluations\.venv
-# Activate the venv
-& "evaluations\.venv\Scripts\Activate.ps1"
-
-# 3) Install dependencies
-pip install --upgrade pip
-pip install -r evaluations/requirements.txt
-
-# 4) Ensure Python can see your src/ package
-# In PowerShell, PYTHONPATH entries are separated by semicolons
 $pwdPath = (Get-Location).Path
 $Env:PYTHONPATH = "$pwdPath;$pwdPath\src"
 
-# 5) Generate eval-input
-Write-Host "▶ Generating eval input…"
+Write-Host "Setting up unified evaluation environment..."
+python -m venv evaluations\.venv
+& "evaluations\.venv\Scripts\Activate.ps1"
+
+pip install --upgrade pip
+pip install --no-deps 'semantic-kernel>=1.40.0'
+pip install -r requirements.txt
+
+Write-Host "Generating evaluation input dataset..."
 python evaluations/generate_eval_input.py
 
-# 6) Conditionally run evaluation
 if (-not $SkipEval) {
-    Write-Host "▶ Running evaluation…"
+    Write-Host "Running evaluation..."
+    if ($Env:COMMIT_ID) {
+        $Env:COMMIT_ID = $Env:COMMIT_ID.Substring(0, 7)
+    }
     python evaluations/evaluate.py
 } else {
-    Write-Host "▶ Skipping evaluation as requested (-SkipEval)."
+    Write-Host "Skipping evaluation as requested (-SkipEval)."
 }
 
-# 7) Teardown
-# Deactivate the venv
-# The Activate.ps1 script defines a function 'Deactivate' or 'deactivate'
-# In many venv setups, 'deactivate' is available
-if (Get-Command deactivate -ErrorAction SilentlyContinue) {
-    deactivate
-} elseif (Get-Command Deactivate -ErrorAction SilentlyContinue) {
-    Deactivate
-}
-
-# Remove the virtual environment folder
+deactivate
 Remove-Item -Recurse -Force evaluations\.venv
 
-Write-Host "✅ All done."
+Write-Host "All done."

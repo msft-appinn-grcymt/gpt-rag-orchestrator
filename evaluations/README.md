@@ -102,22 +102,40 @@ Navigate to the root of the repository (where the `evaluations/` folder resides)
 These scripts perform the following:
 
 1. Validate that `APP_CONFIG_ENDPOINT` is set. If missing, the script will exit with an error message.
-2. Create and activate a Python virtual environment in `evaluations/.venv`.
-3. Install required dependencies from `evaluations/requirements.txt`.
-4. Ensure `PYTHONPATH` includes the project root and `src/`, so the evaluation code can import the application logic.
-5. Run `generate_eval_input.py` to produce `dataset/eval-input.jsonl` based on your golden dataset and application endpoint.
-6. Submit the evaluation using `evaluate.py`, which uploads the dataset, configures evaluators, and calls Azure AI Projects with necessary headers (`model-endpoint` and `api-key`).
-7. Tear down the virtual environment after completion.
+2. **Phase 1 - Generate Eval Input** (uses main app SDK):
+   - Create `evaluations/.venv-generate` virtual environment
+   - Install dependencies from root `requirements.txt` (azure-ai-projects==1.1.0b3)
+   - Run `generate_eval_input.py` to produce `dataset/eval-input.jsonl`
+   - Remove `.venv-generate`
+3. **Phase 2 - Run Evaluation** (uses new SDK):
+   - Create `evaluations/.venv-evaluate` virtual environment
+   - Install dependencies from `evaluations/requirements.txt` (azure-ai-projects>=2.0.0b1)
+   - Submit the evaluation using `evaluate.py`
+   - Remove `.venv-evaluate`
+
+> **Why Two Virtual Environments?**
+>
+> The Azure AI SDK underwent a major API redesign between versions 1.x and 2.0.0b1:
+> - **1.x API**: Uses `agents.threads`, `agents.messages`, `agents.runs.stream()` for agent operations
+> - **2.0.0b1+ API**: Uses the new "Responses" protocol with `conversations` and `client.evals.create()`
+>
+> The main application (`src/`) uses the 1.x agents API extensively (~800 lines in strategy files).
+> The evaluation script requires the 2.0.0b1+ API for `client.evals.create()` and `client.evals.runs.create()`.
+>
+> These SDKs cannot coexist in the same environment, hence the dual-venv approach.
 
 ### Customization
 
 * **Skipping Evaluation**: Use the `--skip-eval` or `-SkipEval` flag if you only want to generate the evaluation input without submitting to Azure.
+* **Red Team Scanning**: Enabled by default. The scripts automatically start the app locally for red team scanning. To use an external endpoint, set `APP_ENDPOINT` and `APP_API_KEY` environment variables. To disable, set `ENABLE_RED_TEAM=false`.
 * **Logging Level**: By default, logging is set to INFO. You can adjust logging settings in the scripts if you need DEBUG-level details.
-* **Evaluator Configuration**: To modify which metrics run, edit the `evaluators` dictionary in `evaluations/evaluate.py`. Each entry maps a friendly name (e.g., "completeness") to an `EvaluatorConfiguration` with an `EvaluatorIds` enum value and data mappings.
+* **Evaluator Configuration**: To modify which metrics run, edit the `testing_criteria` list in `evaluations/evaluate.py`. Each entry defines an evaluator with type, name, initialization parameters, and data mappings.
 
 ### Troubleshooting
 
 * **Authentication Errors**: If the script reports missing `model-endpoint` or `api-key`, verify that Key Vault contains the secret named by `EVALUATIONS_MODEL_API_KEY_SECRET_NAME` in App Configuration, and that AppConfigClient can access it.
+* **`'AgentsOperations' object has no attribute 'threads'`**: This error indicates SDK version mismatch. Ensure `generate_eval_input.py` runs in `.venv-generate` (main app SDK) and `evaluate.py` runs in `.venv-evaluate` (2.0.0b1+ SDK).
+* **`Identity does not have permissions` with empty object ID**: Ensure `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_CLIENT_SECRET` environment variables are set for service principal authentication. The scripts use `EnvironmentCredential` as the first credential in the chain.
 * **App Configuration Access**: Ensure that the managed identity or Azure CLI login has access to read App Configuration settings.
 * **Azure AI Projects Endpoint**: Confirm that `AI_FOUNDRY_PROJECT_ENDPOINT` and `AI_FOUNDRY_ACCOUNT_ENDPOINT` values are correct and correspond to your Azure AI resource.
 * **Environment Variables**: Double-check that all required environment variables are set in your shell before running the scripts.

@@ -1,29 +1,17 @@
-import asyncio
 import logging
 import re
 from typing import AsyncIterator
 
-from semantic_kernel.agents import (
-    AzureAIAgent,
-    AzureAIAgentSettings,
-    AgentGroupChat
-)
-from semantic_kernel.agents.strategies import TerminationStrategy
+from semantic_kernel.agents import ChatCompletionAgent
+from semantic_kernel.agents.orchestration.group_chat import GroupChatOrchestration, RoundRobinGroupChatManager
+from semantic_kernel.agents.runtime import InProcessRuntime
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
+from azure.identity import get_bearer_token_provider
 
 from .base_agent_strategy import BaseAgentStrategy
 from .agent_strategies import AgentStrategies
 from plugins.nl2sql.plugin import NL2SQLPlugin
-
-
-class ApprovalTerminationStrategy(TerminationStrategy):
-    """Terminate as soon as the assistant emits TERMINATE."""
-    def __init__(self, terminator_re: re.Pattern, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._terminator_re = terminator_re
-
-    async def should_agent_terminate(self, agent, history):
-        last = history[-1].content
-        return bool(self._terminator_re.search(last))
 
 
 class NL2SQLStrategy(BaseAgentStrategy):
@@ -55,121 +43,63 @@ class NL2SQLStrategy(BaseAgentStrategy):
         # ensure prompts are loaded
         await self._load_prompts()
 
-        # prepare model settings
-        ai_agent_settings = AzureAIAgentSettings(
-            model_deployment_name=self.model_name,
-            endpoint=self.project_endpoint
+        # create kernel and AI service
+        kernel = Kernel()
+        token_provider = get_bearer_token_provider(
+            self.credential, "https://cognitiveservices.azure.com/.default"
+        )
+        service = AzureChatCompletion(
+            deployment_name=self.model_name,
+            endpoint=self.account_endpoint,
+            api_version=self.openai_api_version,
+            ad_token_provider=token_provider,
+        )
+        kernel.add_service(service)
+
+        # create local agents (no server-side creation needed)
+        triage_agent = ChatCompletionAgent(
+            kernel=kernel,
+            name="TriageAgent",
+            description="Triages NL2SQL queries and routes to the appropriate agent.",
+            instructions=self._triage_prompt,
+            plugins=[self._nl2sql_plugin],
+        )
+        sqlquery_agent = ChatCompletionAgent(
+            kernel=kernel,
+            name="SQLQueryAgent",
+            description="Generates and executes SQL queries based on natural language input.",
+            instructions=self._sqlquery_prompt,
+            plugins=[self._nl2sql_plugin],
+        )
+        syntetizer_agent = ChatCompletionAgent(
+            kernel=kernel,
+            name="SyntetizerAgent",
+            description="Synthesizes results from SQL queries into a natural language response.",
+            instructions=self._syntetizer_prompt,
+            plugins=[self._nl2sql_plugin],
         )
 
-        # open a single client/session for creation + streaming
-        async with self.credential as creds, \
-                   AzureAIAgent.create_client(
-                       credential=creds,
-                       endpoint=self.project_endpoint
-                   ) as client:
+        runtime = InProcessRuntime()
+        runtime.start()
 
-            # 1) create all three agents in parallel
-            triage_def, sql_def, syntetizer_def= await asyncio.gather(
-                client.agents.create_agent(
-                    model=ai_agent_settings.model_deployment_name,
-                    name="TriageAgent",
-                    instructions=self._triage_prompt
-                ),
-                client.agents.create_agent(
-                    model=ai_agent_settings.model_deployment_name,
-                    name="SQLQueryAgent",
-                    instructions=self._sqlquery_prompt
-                ),
-                client.agents.create_agent(
-                    model=ai_agent_settings.model_deployment_name,
-                    name="SyntetizerAgent",
-                    instructions=self._syntetizer_prompt
-                ),                
+        try:
+            orchestration = GroupChatOrchestration(
+                members=[triage_agent, sqlquery_agent, syntetizer_agent],
+                manager=RoundRobinGroupChatManager(max_rounds=10),
             )
 
-            # 2) wrap them in AzureAIAgent objects (using keyword args!)
-            triage_agent = AzureAIAgent(
-                client=client,
-                definition=triage_def,
-                plugins=[self._nl2sql_plugin]
-            )
-            sqlquery_agent = AzureAIAgent(
-                client=client,
-                definition=sql_def,
-                plugins=[self._nl2sql_plugin]
-            )
-            syntetizer_agent = AzureAIAgent(
-                client=client,
-                definition=syntetizer_def,
-                plugins=[self._nl2sql_plugin]
+            result = await orchestration.invoke(
+                task=user_message,
+                runtime=runtime,
             )
 
-            # 3) assemble group chat with our custom terminator
-            chat = AgentGroupChat(
-                agents=[triage_agent, sqlquery_agent, syntetizer_agent],
-                termination_strategy=ApprovalTerminationStrategy(
-                    terminator_re=self._terminator_re,
-                    agents=[syntetizer_agent],
-                    maximum_iterations=10
-                ),
-            )
+            # process result — strip terminator keyword and yield
+            final_text = str(result)
+            cleaned = self._terminator_re.sub("", final_text)
+            yield cleaned
 
+        finally:
             try:
-                # start the conversation
-                await chat.add_chat_message(message=user_message)
-
-                buffer = ""
-                async for content in chat.invoke_stream():
-
-                    if content.name == "SyntetizerAgent":
-
-                        buffer += content.content
-
-                        # only process once the regex matches
-                        if not self._terminator_re.search(buffer):
-                            continue
-
-                        # strip the terminator and yield
-                        cleaned = self._terminator_re.sub("", buffer)
-                        buffer = ""
-                        yield cleaned
-
-            finally:
-                # clear conversation state
-                try:
-                    await chat.reset()
-                except Exception as e:
-                    logging.warning(f"Chat reset failed: {e!r}")
-
-                # schedule background deletions
-                for agent, name in [
-                    (triage_agent, "triage_agent"),
-                    (sqlquery_agent, "sqlquery_agent"),
-                    (syntetizer_agent, "syntetizer_agent"),
-                ]:
-                    agent_id = getattr(agent, "id", None)
-                    if agent_id:
-                        logging.info(f"Scheduling deletion for {name} (id={agent_id})")
-                        self._schedule_agent_deletion(agent_id)
-                    else:
-                        logging.warning(f"{name} has no id; skipping deletion.")
-
-    def _schedule_agent_deletion(self, agent_id: str):
-        """
-        Fire-and-forget deletion that opens its own client/session,
-        preventing “Session is closed” errors.
-        """
-        async def _delete():
-            try:
-                async with self.credential as creds, \
-                           AzureAIAgent.create_client(
-                               credential=creds,
-                               endpoint=self.project_endpoint
-                           ) as delete_client:
-                    await delete_client.agents.delete_agent(agent_id)
-                    logging.info(f"Background deleted agent {agent_id}")
+                await runtime.stop_when_idle()
             except Exception as e:
-                logging.error(f"Failed background deletion of {agent_id}: {e!r}")
-
-        task = asyncio.create_task(_delete())
-        task.add_done_callback(lambda t: t.exception())
+                logging.warning(f"Runtime stop failed: {e!r}")

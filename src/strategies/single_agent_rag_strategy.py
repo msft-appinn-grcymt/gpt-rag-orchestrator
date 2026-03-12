@@ -9,6 +9,7 @@ from azure.ai.projects.models import (
     AISearchIndexResource,
     BingGroundingTool,
     BingGroundingSearchToolParameters,
+    BingGroundingSearchConfiguration,
     FunctionTool,
 )
 from azure.search.documents.agent import KnowledgeAgentRetrievalClient
@@ -106,7 +107,9 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
         else:
             bing = BingGroundingTool(
                 bing_grounding=BingGroundingSearchToolParameters(
-                    project_connection_id=bing_conn,
+                    search_configurations=[
+                        BingGroundingSearchConfiguration(project_connection_id=bing_conn)
+                    ]
                 )
             )
             self.tools_list.append(bing)

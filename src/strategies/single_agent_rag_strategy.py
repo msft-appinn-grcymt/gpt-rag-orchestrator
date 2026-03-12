@@ -521,7 +521,7 @@ class SingleAgentRAGStrategy(BaseAgentStrategy):
                 try:
                     agent = await project_client.agents.get_version(
                         agent_name=self.existing_agent_id,
-                        version="latest",
+                        agent_version="latest",
                     )
                     logging.info(f"Reused agent: name={agent.name}, version={agent.version}")
                 except Exception as e:
@@ -585,7 +585,6 @@ Example: "The emergency room copay for in-network services is $100 [Benefits Sum
                         model=self.model_name,
                         instructions=instructions,
                         tools=tools_list,
-                        tool_resources=self.tool_resources,
                     ),
                 )
                 create_agent = True

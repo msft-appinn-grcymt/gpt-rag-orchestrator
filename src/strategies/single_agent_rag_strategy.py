@@ -765,6 +765,6 @@ Example: "The emergency room copay for in-network services is $100 [Benefits Sum
             if create_agent:
                 logging.debug(f"Deleting agent: name={agent.name}, version={agent.version}")
                 await project_client.agents.delete_version(
-                    agent_name=agent.name, version=agent.version
+                    agent_name=agent.name, agent_version=agent.version
                 )
                 logging.debug("Agent deletion complete.")

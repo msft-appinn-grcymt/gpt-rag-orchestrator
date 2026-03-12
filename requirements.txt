@@ -22,6 +22,15 @@ openai>=1.108.0
 # MCPSsePlugin, and kernel_function — none of which need azure-ai-agents.
 mcp>=1.8
 pydantic-settings>=2.0
+pybars4~=0.9
+nest-asyncio~=1.6
+defusedxml~=0.7
+openapi_core>=0.18,<0.20
+prance>=23.6.21,<25.4.9
+cloudevents~=1.0
+websockets>=13,<16
+aiortc>=1.9.0
+scipy>=1.15.1
 aiohttp==3.12.14
 pydantic==2.11.4
 

@@ -10,7 +10,6 @@ from azure.ai.projects.models import (
     BingGroundingTool,
     BingGroundingSearchToolParameters,
     FunctionTool,
-    FunctionCallOutput,
 )
 from azure.search.documents.agent import KnowledgeAgentRetrievalClient
 from azure.search.documents.agent.models import (
@@ -678,28 +677,25 @@ Example: "The emergency room copay for in-network services is $100 [Benefits Sum
                                 try:
                                     args = json.loads(func_args_str) if func_args_str else {}
                                     result = handler(**args)
-                                    function_outputs.append(
-                                        FunctionCallOutput(
-                                            call_id=call_id,
-                                            output=result if isinstance(result, str) else json.dumps(result),
-                                        )
-                                    )
+                                    function_outputs.append({
+                                        "type": "function_call_output",
+                                        "call_id": call_id,
+                                        "output": result if isinstance(result, str) else json.dumps(result),
+                                    })
                                 except Exception as func_err:
                                     logging.error(f"Function {func_name} failed: {func_err}", exc_info=True)
-                                    function_outputs.append(
-                                        FunctionCallOutput(
-                                            call_id=call_id,
-                                            output=json.dumps({"error": str(func_err)}),
-                                        )
-                                    )
+                                    function_outputs.append({
+                                        "type": "function_call_output",
+                                        "call_id": call_id,
+                                        "output": json.dumps({"error": str(func_err)}),
+                                    })
                             else:
                                 logging.warning(f"No handler for function: {func_name}")
-                                function_outputs.append(
-                                    FunctionCallOutput(
-                                        call_id=call_id,
-                                        output=json.dumps({"error": f"Unknown function: {func_name}"}),
-                                    )
-                                )
+                                function_outputs.append({
+                                    "type": "function_call_output",
+                                    "call_id": call_id,
+                                    "output": json.dumps({"error": f"Unknown function: {func_name}"}),
+                                })
 
                     elif event_type == "response.completed":
                         response_obj = getattr(event, "response", None)

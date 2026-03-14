@@ -22,9 +22,7 @@ from azure.ai.projects.models import (
 from appconfig import AppConfigClient
 from keyvault import KeyVaultClient
 from azure.ai.evaluation.red_team import RedTeam, RiskCategory, AttackStrategy
-from fastapi.testclient import TestClient
-# Import the FastAPI app; ensure PYTHONPATH includes the 'src' directory
-from src.main import app
+from copilot_client import copilot_chat, CopilotMessage
 
 # Suppress Azure SDK HTTP logging
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
@@ -120,7 +118,7 @@ evaluators = {
 # Get commit ID from environment variable or command-line argument
 commit_id = os.getenv("COMMIT_ID") or (sys.argv[1] if len(sys.argv) > 1 else "unknown")
 eval_timestamp = datetime.now(UTC).strftime("%Y%m%d-%H:%M")
-display_name = f"Auto evaluation-{commit_id}-{eval_timestamp}"
+display_name = f"Auto evaluation-CopilotStudio-{eval_timestamp}"
 
 evaluation = Evaluation(
     display_name=display_name,
@@ -159,12 +157,23 @@ except Exception as e:
 async def run_red_team_scan():
     logger.info(f"### Red Teaming Scan Starting ###")
 
-    client = TestClient(app)
+    # Get Copilot configuration
+    copilot_token_secret = cfg.get("COPILOT_TOKEN_SECRET")
+    copilot_conversation_url = cfg.get("COPILOT_CONVERSATION_URL")
 
     def app_callback(query: str) -> str:
-        resp = client.post("/orchestrator", json={"ask": query, "conversation_id": None}, headers={"X-API-KEY": "sample"})
-        response_text = resp.text
-        return response_text
+        # Create a CopilotMessage with the query
+        copilot_message = CopilotMessage(message=query, user_id="red_team_user")
+        
+        # Call copilot_chat and get the response
+        result = copilot_chat(
+            copilot_message,
+            copilot_token_secret,
+            copilot_conversation_url
+        )
+        
+        # Return the response text
+        return result["response"]
 
 
     # Define a simple callback function that always returns a fixed response
@@ -175,7 +184,7 @@ async def run_red_team_scan():
 
     azure_ai_project = AZURE_AI_PROJECT
 
-    red_teaming_display_name = f"Red Teaming-{commit_id}-{eval_timestamp}"
+    red_teaming_display_name = f"Red Teaming-Copilot-{eval_timestamp}"
 
     red_team_agent = RedTeam(
         azure_ai_project=azure_ai_project, 
@@ -197,4 +206,4 @@ async def run_red_team_scan():
         output_path="red_team_output.json",
     )
 
-# asyncio.run(run_red_team_scan())
+asyncio.run(run_red_team_scan())
